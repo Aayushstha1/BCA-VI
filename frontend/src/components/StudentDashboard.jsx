@@ -108,7 +108,6 @@ const StudentDashboard = () => {
               <li>Library book status</li>
               <li>Notices and announcements</li>
               <li>Study materials and notes</li>
-              <li>QR code for attendance marking</li>
             </ul>
           </Alert>
         </Paper>
