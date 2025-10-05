@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { Routes, Route, Navigate, useLocation, Link } from "react-router-dom";
 import {
   Box,
   AppBar,
@@ -17,8 +17,9 @@ import {
   MenuItem,
   Divider,
   useTheme,
-  useMediaQuery
-} from '@mui/material';
+  useMediaQuery,
+  Tooltip,
+} from "@mui/material";
 import {
   Dashboard as DashboardIcon,
   People as PeopleIcon,
@@ -32,40 +33,41 @@ import {
   Note as NoteIcon,
   Menu as MenuIcon,
   AccountCircle as AccountIcon,
-  Logout as LogoutIcon
-} from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
-import Dashboard from './admin/Dashboard';
-import UserManagement from './admin/UserManagement';
-import StudentManagement from './admin/StudentManagement';
-import TeacherManagement from './admin/TeacherManagement';
-import AttendanceManagement from './admin/AttendanceManagement';
-import HostelManagement from './admin/HostelManagement';
-import LibraryManagement from './admin/LibraryManagement';
-import ResultsManagement from './admin/ResultsManagement';
-import NoticesManagement from './admin/NoticesManagement';
-import NotesManagement from './admin/NotesManagement';
+  Logout as LogoutIcon,
+} from "@mui/icons-material";
+import { useAuth } from "../contexts/AuthContext";
+import Dashboard from "./admin/Dashboard";
+import UserManagement from "./admin/UserManagement";
+import StudentManagement from "./admin/StudentManagement";
+import TeacherManagement from "./admin/TeacherManagement";
+import AttendanceManagement from "./admin/AttendanceManagement";
+import HostelManagement from "./admin/HostelManagement";
+import LibraryManagement from "./admin/LibraryManagement";
+import ResultsManagement from "./admin/ResultsManagement";
+import NoticesManagement from "./admin/NoticesManagement";
+import NotesManagement from "./admin/NotesManagement";
 
 const drawerWidth = 240;
 
 const AdminDashboard = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const { user, logout } = useAuth();
+  const location = useLocation();
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin' },
-    { text: 'User Management', icon: <PeopleIcon />, path: '/admin/users' },
-    { text: 'Students', icon: <SchoolIcon />, path: '/admin/students' },
-    { text: 'Teachers', icon: <PersonIcon />, path: '/admin/teachers' },
-    { text: 'Attendance', icon: <AssessmentIcon />, path: '/admin/attendance' },
-    { text: 'Hostel', icon: <HomeIcon />, path: '/admin/hostel' },
-    { text: 'Library', icon: <LibraryIcon />, path: '/admin/library' },
-    { text: 'Results', icon: <GradeIcon />, path: '/admin/results' },
-    { text: 'Notices', icon: <NoticeIcon />, path: '/admin/notices' },
-    { text: 'Notes', icon: <NoteIcon />, path: '/admin/notes' },
+    { text: "Dashboard", icon: <DashboardIcon />, path: "/admin" },
+    { text: "User Management", icon: <PeopleIcon />, path: "/admin/users" },
+    { text: "Students", icon: <SchoolIcon />, path: "/admin/students" },
+    { text: "Teachers", icon: <PersonIcon />, path: "/admin/teachers" },
+    { text: "Attendance", icon: <AssessmentIcon />, path: "/admin/attendance" },
+    { text: "Hostel", icon: <HomeIcon />, path: "/admin/hostel" },
+    { text: "Library", icon: <LibraryIcon />, path: "/admin/library" },
+    { text: "Results", icon: <GradeIcon />, path: "/admin/results" },
+    { text: "Notices", icon: <NoticeIcon />, path: "/admin/notices" },
+    { text: "Notes", icon: <NoteIcon />, path: "/admin/notes" },
   ];
 
   const handleDrawerToggle = () => {
@@ -86,31 +88,71 @@ const AdminDashboard = () => {
   };
 
   const drawer = (
-    <div>
+    <Box
+      sx={{
+        height: "100%",
+        background: "linear-gradient(180deg, #1e3c72, #2a5298)",
+        color: "white",
+      }}
+    >
       <Toolbar>
-        <Typography variant="h6" noWrap component="div">
+        <Typography variant="h6" sx={{ fontWeight: "bold", mx: "auto" }}>
           Admin Panel
         </Typography>
       </Toolbar>
-      <Divider />
+      <Divider sx={{ bgcolor: "rgba(255,255,255,0.2)" }} />
       <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton component="a" href={item.path}>
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
+        {menuItems.map((item) => {
+          const active = location.pathname === item.path;
+          return (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                component={Link}
+                to={item.path}
+                sx={{
+                  mx: 1,
+                  borderRadius: 2,
+                  mb: 0.5,
+                  color: active ? "#1e3c72" : "white",
+                  backgroundColor: active ? "white" : "transparent",
+                  transition: "0.3s",
+                  "&:hover": {
+                    backgroundColor: active
+                      ? "white"
+                      : "rgba(255,255,255,0.15)",
+                  },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    color: active ? "#1e3c72" : "white",
+                    minWidth: 40,
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  primaryTypographyProps={{
+                    fontWeight: active ? "bold" : "normal",
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
       </List>
-    </div>
+    </Box>
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: "flex" }}>
+      {/* Top AppBar */}
       <AppBar
         position="fixed"
+        elevation={4}
         sx={{
+          background: "linear-gradient(90deg, #1e3c72, #2a5298)",
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
         }}
@@ -118,43 +160,42 @@ const AdminDashboard = () => {
         <Toolbar>
           <IconButton
             color="inherit"
-            aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: 'none' } }}
+            sx={{ mr: 2, display: { md: "none" } }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Student Management System - Admin
-          </Typography>
-          <IconButton
-            size="large"
-            edge="end"
-            aria-label="account of current user"
-            aria-controls="profile-menu"
-            aria-haspopup="true"
-            onClick={handleProfileMenuOpen}
-            color="inherit"
+          <Typography
+            variant="h6"
+            noWrap
+            sx={{ flexGrow: 1, fontWeight: "bold", letterSpacing: 0.5 }}
           >
-            <Avatar sx={{ width: 32, height: 32 }}>
-              {user?.first_name?.[0] || user?.username?.[0] || 'A'}
-            </Avatar>
-          </IconButton>
+            🎓 Student Management System (Admin)
+          </Typography>
+
+          <Tooltip title="Profile Menu">
+            <IconButton onClick={handleProfileMenuOpen} color="inherit">
+              <Avatar
+                sx={{
+                  width: 35,
+                  height: 35,
+                  bgcolor: "#fff",
+                  color: "#1e3c72",
+                  fontWeight: "bold",
+                }}
+              >
+                {user?.first_name?.[0] || user?.username?.[0] || "A"}
+              </Avatar>
+            </IconButton>
+          </Tooltip>
+
           <Menu
-            id="profile-menu"
             anchorEl={anchorEl}
-            anchorOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            keepMounted
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
             open={Boolean(anchorEl)}
             onClose={handleProfileMenuClose}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
           >
             <MenuItem onClick={handleProfileMenuClose}>
               <ListItemIcon>
@@ -162,9 +203,10 @@ const AdminDashboard = () => {
               </ListItemIcon>
               Profile
             </MenuItem>
+            <Divider />
             <MenuItem onClick={handleLogout}>
               <ListItemIcon>
-                <LogoutIcon fontSize="small" />
+                <LogoutIcon fontSize="small" color="error" />
               </ListItemIcon>
               Logout
             </MenuItem>
@@ -172,29 +214,29 @@ const AdminDashboard = () => {
         </Toolbar>
       </AppBar>
 
-      <Box
-        component="nav"
-        sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
-      >
+      {/* Sidebar Drawer */}
+      <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: 0 }}>
         <Drawer
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
+          ModalProps={{ keepMounted: true }}
           sx={{
-            display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            display: { xs: "block", md: "none" },
+            "& .MuiDrawer-paper": { width: drawerWidth },
           }}
         >
           {drawer}
         </Drawer>
+
         <Drawer
           variant="permanent"
           sx={{
-            display: { xs: 'none', md: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            display: { xs: "none", md: "block" },
+            "& .MuiDrawer-paper": {
+              width: drawerWidth,
+              border: "none",
+            },
           }}
           open
         >
@@ -202,12 +244,16 @@ const AdminDashboard = () => {
         </Drawer>
       </Box>
 
+      {/* Main Content Area */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
+          bgcolor: "#f4f6f8",
+          minHeight: "100vh",
           width: { md: `calc(100% - ${drawerWidth}px)` },
+          transition: "0.3s ease",
         }}
       >
         <Toolbar />
