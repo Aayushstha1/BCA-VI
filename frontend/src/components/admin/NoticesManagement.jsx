@@ -167,16 +167,16 @@ const NoticesManagement = () => {
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>
-          Published Notices ({notices?.length || 0})
+          Published Notices ({(Array.isArray(notices) ? notices : (notices?.results || [])).length})
         </Typography>
         
-        {!notices || notices.length === 0 ? (
+        {!(Array.isArray(notices) ? notices : (notices?.results || [])).length ? (
           <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
             No notices published yet. Publish your first notice!
           </Typography>
         ) : (
           <Grid container spacing={2}>
-            {notices.map((notice) => (
+            {(Array.isArray(notices) ? notices : (notices?.results || [])).map((notice) => (
               <Grid item xs={12} md={6} lg={4} key={notice.id}>
                 <Card sx={{ height: '100%' }}>
                   <CardContent>
@@ -281,7 +281,7 @@ const NoticesManagement = () => {
                     onChange={handleInputChange}
                     label="Category"
                   >
-                    {categories?.map((category) => (
+                    {(Array.isArray(categories) ? categories : (categories?.results || [])).map((category) => (
                       <MenuItem key={category.id} value={category.id}>
                         {category.name}
                       </MenuItem>

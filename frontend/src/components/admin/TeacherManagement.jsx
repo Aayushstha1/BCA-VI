@@ -38,6 +38,9 @@ import axios from 'axios';
 
 const TeacherManagement = () => {
   const [openDialog, setOpenDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     username: '',
@@ -100,6 +103,39 @@ const TeacherManagement = () => {
     }
   });
 
+  const updateTeacherMutation = useMutation({
+    mutationFn: async ({ id, updates }) => {
+      const payload = { ...updates };
+      Object.keys(payload).forEach((k) => {
+        if (payload[k] === '') delete payload[k];
+      });
+      const res = await axios.put(`/teachers/${id}/`, payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['teachers']);
+      setOpenEditDialog(false);
+      setSelectedTeacher(null);
+    },
+    onError: (error) => {
+      setError(error.response?.data?.message || 'Failed to update teacher');
+    }
+  });
+
+  const deleteTeacherMutation = useMutation({
+    mutationFn: async (id) => {
+      await axios.delete(`/teachers/${id}/`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['teachers']);
+      setOpenDeleteDialog(false);
+      setSelectedTeacher(null);
+    },
+    onError: (error) => {
+      setError(error.response?.data?.message || 'Failed to delete teacher');
+    }
+  });
+
   const handleOpenDialog = () => {
     setOpenDialog(true);
     setError('');
@@ -142,7 +178,8 @@ const TeacherManagement = () => {
     setLoading(false);
   };
 
-  const filteredTeachers = teachers?.filter(teacher => {
+  const teachersArray = Array.isArray(teachers) ? teachers : (teachers?.results || []);
+  const filteredTeachers = teachersArray.filter(teacher => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -152,7 +189,7 @@ const TeacherManagement = () => {
       teacher.department?.toLowerCase().includes(query) ||
       teacher.designation?.toLowerCase().includes(query)
     );
-  }) || [];
+  });
 
   const departments = [
     'Mathematics', 'Science', 'English', 'Social Studies', 
@@ -247,12 +284,33 @@ const TeacherManagement = () => {
                     </TableCell>
                     <TableCell>
                       <Tooltip title="Edit">
-                        <IconButton size="small">
+                        <IconButton size="small" onClick={() => {
+                          setSelectedTeacher(teacher);
+                          setFormData({
+                            ...formData,
+                            // user fields are not editable here; only teacher profile fields
+                            phone: teacher.user_details?.phone || '',
+                            joining_date: teacher.joining_date || '',
+                            qualification: teacher.qualification || '',
+                            department: teacher.department || '',
+                            designation: teacher.designation || 'Teacher',
+                            experience_years: teacher.experience_years ?? 0,
+                            salary: teacher.salary || '',
+                            emergency_contact: teacher.emergency_contact || '',
+                            emergency_contact_name: teacher.emergency_contact_name || ''
+                          });
+                          setOpenEditDialog(true);
+                          setError('');
+                        }}>
                           <EditIcon />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete">
-                        <IconButton size="small">
+                        <IconButton size="small" onClick={() => {
+                          setSelectedTeacher(teacher);
+                          setOpenDeleteDialog(true);
+                          setError('');
+                        }}>
                           <DeleteIcon />
                         </IconButton>
                       </Tooltip>
@@ -473,6 +531,91 @@ const TeacherManagement = () => {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* Edit Teacher Dialog */}
+      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Teacher</DialogTitle>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          if (!selectedTeacher) return;
+          setLoading(true);
+          const updates = {
+            // Only teacher model fields
+            joining_date: formData.joining_date,
+            qualification: formData.qualification,
+            department: formData.department,
+            designation: formData.designation,
+            experience_years: formData.experience_years,
+            salary: formData.salary,
+            emergency_contact: formData.emergency_contact,
+            emergency_contact_name: formData.emergency_contact_name,
+          };
+          updateTeacherMutation.mutate({ id: selectedTeacher.id, updates });
+          setLoading(false);
+        }}>
+          <DialogContent>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth label="Joining Date" name="joining_date" type="date" value={formData.joining_date} onChange={handleInputChange} InputLabelProps={{ shrink: true }} required />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>Qualification</InputLabel>
+                  <Select name="qualification" value={formData.qualification} label="Qualification" onChange={handleInputChange}>
+                    {qualifications.map((q) => (<MenuItem key={q} value={q}>{q}</MenuItem>))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>Department</InputLabel>
+                  <Select name="department" value={formData.department} label="Department" onChange={handleInputChange}>
+                    {departments.map((d) => (<MenuItem key={d} value={d}>{d}</MenuItem>))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth label="Designation" name="designation" value={formData.designation} onChange={handleInputChange} required />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth type="number" label="Experience (Years)" name="experience_years" value={formData.experience_years} onChange={handleInputChange} required />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth type="number" label="Salary" name="salary" value={formData.salary} onChange={handleInputChange} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth label="Emergency Contact Name" name="emergency_contact_name" value={formData.emergency_contact_name} onChange={handleInputChange} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth label="Emergency Contact Number" name="emergency_contact" value={formData.emergency_contact} onChange={handleInputChange} />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={loading}>{loading ? <CircularProgress size={24} /> : 'Save Changes'}</Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
+        <DialogTitle>Delete Teacher</DialogTitle>
+        <DialogContent>
+          <Typography>Are you sure you want to delete this teacher?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDeleteDialog(false)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={() => {
+            if (selectedTeacher) deleteTeacherMutation.mutate(selectedTeacher.id);
+          }}>Delete</Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

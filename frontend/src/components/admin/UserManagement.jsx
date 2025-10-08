@@ -115,11 +115,12 @@ const UserManagement = () => {
     setLoading(false);
   };
 
-  const filteredUsers = users?.filter(user => {
+  const usersArray = Array.isArray(users) ? users : (users?.results || []);
+  const filteredUsers = usersArray.filter(user => {
     if (tabValue === 0) return user.role === 'student';
     if (tabValue === 1) return user.role === 'teacher';
     return true;
-  }) || [];
+  });
 
   const getRoleLabel = (role) => {
     switch (role) {

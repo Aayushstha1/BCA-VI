@@ -60,7 +60,7 @@ const AttendanceManagement = () => {
 
   const queryClient = useQueryClient();
 
-  const { data: sessions, isLoading } = useQuery({
+  const { data: sessions, isLoading, isError: isSessionsError, error: sessionsError } = useQuery({
     queryKey: ['sessions', selectedDate],
     queryFn: async () => {
       const response = await axios.get(`/attendance/sessions/?date=${selectedDate}`);
@@ -68,13 +68,23 @@ const AttendanceManagement = () => {
     },
   });
 
-  const { data: subjects } = useQuery({
+  const { data: subjects, isError: isSubjectsError, error: subjectsError } = useQuery({
     queryKey: ['subjects'],
     queryFn: async () => {
       const response = await axios.get('/attendance/subjects/');
       return response.data;
     },
   });
+
+  const formatDate = (value) => {
+    try {
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return '-';
+      return d.toLocaleDateString();
+    } catch (_) {
+      return '-';
+    }
+  };
 
   const createAttendanceMutation = useMutation({
     mutationFn: async (attendanceData) => {
@@ -187,6 +197,17 @@ const AttendanceManagement = () => {
     );
   }
 
+  if (isSessionsError) {
+    return (
+      <Box p={2}>
+        <Alert severity="error">Failed to load attendance sessions{sessionsError?.message ? `: ${sessionsError.message}` : ''}</Alert>
+      </Box>
+    );
+  }
+
+  const sessionsArray = Array.isArray(sessions) ? sessions : (sessions?.results || []);
+  const subjectsArray = Array.isArray(subjects) ? subjects : (subjects?.results || []);
+
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -225,16 +246,16 @@ const AttendanceManagement = () => {
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>
-          Attendance Sessions ({sessions?.length || 0})
+          Attendance Sessions ({sessionsArray.length})
         </Typography>
         
-        {!sessions || sessions.length === 0 ? (
+        {sessionsArray.length === 0 ? (
           <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
             No attendance sessions for {new Date(selectedDate).toLocaleDateString()}. Create a session to start marking attendance!
           </Typography>
         ) : (
           <Grid container spacing={2}>
-            {sessions.map((attendance) => (
+            {sessionsArray.map((attendance) => (
               <Grid item xs={12} md={6} lg={4} key={attendance.id}>
                 <Card sx={{ height: '100%' }}>
                   <CardContent>
@@ -254,7 +275,7 @@ const AttendanceManagement = () => {
                     </Typography>
                     
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Date: {new Date(attendance.date).toLocaleDateString()}
+                      Date: {formatDate(attendance?.date)}
                     </Typography>
                     
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -335,7 +356,7 @@ const AttendanceManagement = () => {
                     onChange={handleInputChange}
                     label="Subject"
                   >
-                    {subjects?.map((subject) => (
+                    {subjectsArray.map((subject) => (
                       <MenuItem key={subject.id} value={subject.id}>
                         {subject.name}
                       </MenuItem>
