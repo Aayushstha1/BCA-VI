@@ -23,6 +23,27 @@ class Subject(models.Model):
         ordering = ['name']
 
 
+class AttendanceSession(models.Model):
+    """
+    A session for taking attendance for a class/section/period on a specific date and subject.
+    """
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='sessions')
+    date = models.DateField()
+    period = models.PositiveIntegerField(default=1)
+    class_name = models.CharField(max_length=100)
+    section = models.CharField(max_length=50)
+    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, related_name='attendance_sessions')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_attendance_sessions')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.subject.name} {self.class_name}-{self.section} P{self.period} {self.date}"
+
+    class Meta:
+        unique_together = ['subject', 'date', 'period', 'class_name', 'section']
+        ordering = ['-date', 'subject__name', 'period']
+
+
 class Attendance(models.Model):
     """
     Attendance model for tracking student attendance
@@ -34,6 +55,7 @@ class Attendance(models.Model):
         ('excused', 'Excused'),
     ]
     
+    session = models.ForeignKey('AttendanceSession', on_delete=models.CASCADE, related_name='attendances', null=True, blank=True)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendances')
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='attendances')
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='marked_attendances')

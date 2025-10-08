@@ -18,7 +18,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
   IconButton,
   Tooltip
 } from '@mui/material';
@@ -32,6 +31,9 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+
+// Add missing import for Chip used in the table
+import { Chip } from '@mui/material';
 
 const StudentManagement = () => {
   const [openDialog, setOpenDialog] = useState(false);
@@ -145,7 +147,9 @@ const StudentManagement = () => {
     setLoading(false);
   };
 
-  const filteredStudents = students?.filter(student => {
+  const studentsArray = Array.isArray(students) ? students : (students?.results || []);
+
+  const filteredStudents = studentsArray.filter(student => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -155,7 +159,7 @@ const StudentManagement = () => {
       student.current_class?.toLowerCase().includes(query) ||
       student.roll_number?.toLowerCase().includes(query)
     );
-  }) || [];
+  });
 
   if (isLoading) {
     return (

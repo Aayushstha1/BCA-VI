@@ -244,7 +244,7 @@ const AdminDashboard = () => {
         </Drawer>
       </Box>
 
-      {/* Main Content Area */}
+      
       <Box
         component="main"
         sx={{

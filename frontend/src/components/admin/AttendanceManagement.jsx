@@ -56,13 +56,14 @@ const AttendanceManagement = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [qrCode, setQrCode] = useState('');
+  const [activeSessionId, setActiveSessionId] = useState(null);
 
   const queryClient = useQueryClient();
 
-  const { data: attendances, isLoading } = useQuery({
-    queryKey: ['attendances', selectedDate],
+  const { data: sessions, isLoading } = useQuery({
+    queryKey: ['sessions', selectedDate],
     queryFn: async () => {
-      const response = await axios.get(`/attendance/?date=${selectedDate}`);
+      const response = await axios.get(`/attendance/sessions/?date=${selectedDate}`);
       return response.data;
     },
   });
@@ -77,11 +78,11 @@ const AttendanceManagement = () => {
 
   const createAttendanceMutation = useMutation({
     mutationFn: async (attendanceData) => {
-      const response = await axios.post('/attendance/', attendanceData);
+      const response = await axios.post('/attendance/sessions/', attendanceData);
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['attendances']);
+      queryClient.invalidateQueries(['sessions']);
       setOpenDialog(false);
       setFormData({
         date: new Date().toISOString().split('T')[0],
@@ -102,9 +103,10 @@ const AttendanceManagement = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['attendances']);
+      queryClient.invalidateQueries(['sessions']);
       setOpenQRDialog(false);
       setQrCode('');
+      setActiveSessionId(null);
     },
     onError: (error) => {
       setError(error.response?.data?.message || 'Failed to mark attendance');
@@ -131,12 +133,14 @@ const AttendanceManagement = () => {
   const handleOpenQRDialog = (attendanceId) => {
     setOpenQRDialog(true);
     setQrCode(`ATTENDANCE:${attendanceId}:${selectedDate}`);
+    setActiveSessionId(attendanceId);
     setError('');
   };
 
   const handleCloseQRDialog = () => {
     setOpenQRDialog(false);
     setQrCode('');
+    setActiveSessionId(null);
     setError('');
   };
 
@@ -157,8 +161,8 @@ const AttendanceManagement = () => {
 
   const handleMarkAttendance = (studentId, status) => {
     const attendanceData = {
+      session: activeSessionId,
       student: studentId,
-      date: selectedDate,
       status: status,
       remarks: ''
     };
@@ -221,16 +225,16 @@ const AttendanceManagement = () => {
 
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>
-          Attendance Sessions ({attendances?.length || 0})
+          Attendance Sessions ({sessions?.length || 0})
         </Typography>
         
-        {!attendances || attendances.length === 0 ? (
+        {!sessions || sessions.length === 0 ? (
           <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
             No attendance sessions for {new Date(selectedDate).toLocaleDateString()}. Create a session to start marking attendance!
           </Typography>
         ) : (
           <Grid container spacing={2}>
-            {attendances.map((attendance) => (
+            {sessions.map((attendance) => (
               <Grid item xs={12} md={6} lg={4} key={attendance.id}>
                 <Card sx={{ height: '100%' }}>
                   <CardContent>

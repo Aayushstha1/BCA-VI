@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Subject, Attendance, AttendanceReport
+from .models import Subject, Attendance, AttendanceReport, AttendanceSession
 
 
 class SubjectSerializer(serializers.ModelSerializer):
@@ -18,6 +18,22 @@ class AttendanceSerializer(serializers.ModelSerializer):
         model = Attendance
         fields = '__all__'
 
+
+class AttendanceSessionSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    total_students = serializers.SerializerMethodField()
+    present_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AttendanceSession
+        fields = '__all__'
+
+    def get_total_students(self, obj):
+        # If enrollment model exists, replace with actual class roster size.
+        return obj.attendances.values('student_id').distinct().count()
+
+    def get_present_count(self, obj):
+        return obj.attendances.filter(status__in=['present', 'late']).count()
 
 class AttendanceReportSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
