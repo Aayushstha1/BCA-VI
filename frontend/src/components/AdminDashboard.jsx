@@ -59,7 +59,7 @@ const AdminDashboard = () => {
 
   const menuItems = [
     { text: "Dashboard", icon: <DashboardIcon />, path: "/admin" },
-    { text: "User Management", icon: <PeopleIcon />, path: "/admin/users" },
+    { text: "User Management", icon: <PeopleIcon />, path: "/admin/user" },
     { text: "Students", icon: <SchoolIcon />, path: "/admin/students" },
     { text: "Teachers", icon: <PersonIcon />, path: "/admin/teachers" },
     { text: "Attendance", icon: <AssessmentIcon />, path: "/admin/attendance" },
