@@ -59,7 +59,7 @@ const AdminDashboard = () => {
 
   const menuItems = [
     { text: "Dashboard", icon: <DashboardIcon />, path: "/admin" },
-    { text: "User Management", icon: <PeopleIcon />, path: "/admin/user" },
+    { text: "User Management", icon: <PeopleIcon />, path: "/admin/users" },
     { text: "Students", icon: <SchoolIcon />, path: "/admin/students" },
     { text: "Teachers", icon: <PersonIcon />, path: "/admin/teachers" },
     { text: "Attendance", icon: <AssessmentIcon />, path: "/admin/attendance" },
@@ -251,7 +251,6 @@ const AdminDashboard = () => {
           flexGrow: 1,
           p: 3,
           bgcolor: "#f4f6f8",
-          minHeight: "100vh",
           width: { md: `calc(100% - ${drawerWidth}px)` },
           transition: "0.3s ease",
         }}
