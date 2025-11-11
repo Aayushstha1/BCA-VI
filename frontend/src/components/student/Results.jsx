@@ -1,11 +1,30 @@
 import React from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableHead, TableRow, CircularProgress, Alert } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Results = () => {
-  const terms = [
-    { term: 'Semester 1', sgpa: 8.2, passed: 6, backlogs: 0 },
-    { term: 'Semester 2', sgpa: 8.9, passed: 6, backlogs: 0 },
-  ];
+  const { user } = useAuth();
+  const { data: results, isLoading, isError } = useQuery({
+    queryKey: ['results'],
+    queryFn: async () => {
+      const res = await axios.get('/results/');
+      const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+      return list;
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="40vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+  if (isError) {
+    return <Alert severity="error">Failed to load results.</Alert>;
+  }
 
   return (
     <Box>
@@ -16,19 +35,19 @@ const Results = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Term</TableCell>
+              <TableCell>Exam</TableCell>
               <TableCell>SGPA</TableCell>
-              <TableCell>Passed</TableCell>
-              <TableCell>Backlogs</TableCell>
+              <TableCell>Marks</TableCell>
+              <TableCell>Grade</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {terms.map((t) => (
-              <TableRow key={t.term}>
-                <TableCell>{t.term}</TableCell>
-                <TableCell>{t.sgpa}</TableCell>
-                <TableCell>{t.passed}</TableCell>
-                <TableCell>{t.backlogs}</TableCell>
+            {(results || []).map((r) => (
+              <TableRow key={r.id}>
+                <TableCell>{r.exam_name || r.exam}</TableCell>
+                <TableCell>{/* Placeholder SGPA per exam not defined */}-</TableCell>
+                <TableCell>{r.marks_obtained}</TableCell>
+                <TableCell>{r.grade}</TableCell>
               </TableRow>
             ))}
           </TableBody>

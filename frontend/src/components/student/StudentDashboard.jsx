@@ -32,14 +32,16 @@ import {
   Note as NotesIcon,
   Badge as AdmissionIcon
 } from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
-import StudentHome from './student/Dashboard';
-import ReportCard from './student/ReportCard';
-import AdmissionRecords from './student/AdmissionRecords';
-import Library from './student/Library';
-import Attendance from './student/Attendance';
-import Results from './student/Results';
-import Notes from './student/Notes';
+import { useAuth } from '../../contexts/AuthContext';
+import StudentHome from './Dashboard';
+import ReportCard from './ReportCard';
+import AdmissionRecords from './AdmissionRecords';
+import Library from './Library';
+import Attendance from './Attendance';
+import Results from './Results';
+import Notes from './Notes';
+import Finance from './Finance';
+import { Wallet } from '@mui/icons-material';
 
 const drawerWidth = 220;
 
@@ -56,6 +58,7 @@ const StudentDashboard = () => {
     { text: 'Report Card', icon: <ReportIcon />, path: '/student/report-card' },
     { text: 'Admission', icon: <AdmissionIcon />, path: '/student/admission' },
     { text: 'Library', icon: <LibraryIcon />, path: '/student/library' },
+    { text: 'Finance', icon: <Wallet />, path: '/student/finance' },
     { text: 'Attendance', icon: <AttendanceIcon />, path: '/student/attendance' },
     { text: 'Results', icon: <ResultsIcon />, path: '/student/results' },
     { text: 'Notes', icon: <NotesIcon />, path: '/student/notes' },
@@ -209,6 +212,7 @@ const StudentDashboard = () => {
           <Route path="/admission" element={<AdmissionRecords />} />
           <Route path="/library" element={<Library />} />
           <Route path="/attendance" element={<Attendance />} />
+          <Route path="/finance" element={<Finance />} />
           <Route path="/results" element={<Results />} />
           <Route path="/notes" element={<Notes />} />
           <Route path="*" element={<Navigate to="/student" replace />} />
@@ -219,3 +223,5 @@ const StudentDashboard = () => {
 };
 
 export default StudentDashboard;
+
+

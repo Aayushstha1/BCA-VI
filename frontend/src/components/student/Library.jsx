@@ -1,14 +1,37 @@
 import React from 'react';
-import { Box, Typography, Paper, List, ListItem, ListItemText, Chip } from '@mui/material';
+import { Box, Typography, Paper, List, ListItem, ListItemText, Chip, CircularProgress, Alert } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Library = () => {
-  const items = [
-    { title: 'Clean Code', due: '2025-11-20', status: 'Issued' },
-    { title: 'Introduction to Algorithms', due: '2025-11-25', status: 'Issued' },
-    { title: 'Database System Concepts', due: '-', status: 'Returned' },
-  ];
+  const { user } = useAuth();
+  const { data: issues, isLoading, isError } = useQuery({
+    queryKey: ['library-issues'],
+    queryFn: async () => {
+      const res = await axios.get('/library/issues/');
+      const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+      return list;
+    },
+  });
+
+  const items = (issues || []).filter((i) => {
+    // Match by student_name/id when available; fallback to show all
+    return !i.student || !user ? true : (i.student === user.id || i.student_id || '').toString().length > 0;
+  });
 
   const color = (status) => (status === 'Issued' ? 'warning' : 'success');
+
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="40vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+  if (isError) {
+    return <Alert severity="error">Failed to load library records.</Alert>;
+  }
 
   return (
     <Box>
@@ -20,10 +43,10 @@ const Library = () => {
           {items.map((b, i) => (
             <ListItem key={i} divider>
               <ListItemText
-                primary={b.title}
-                secondary={`Due: ${b.due}`}
+                primary={b.book_title || b.book?.title || 'Book'}
+                secondary={`Due: ${b.due_date || '-'}`}
               />
-              <Chip label={b.status} color={color(b.status)} />
+              <Chip label={(b.status || '').charAt(0).toUpperCase() + (b.status || '').slice(1)} color={color((b.status || '').charAt(0).toUpperCase() + (b.status || '').slice(1))} />
             </ListItem>
           ))}
         </List>

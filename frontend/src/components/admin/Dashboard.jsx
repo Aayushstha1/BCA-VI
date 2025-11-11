@@ -1,241 +1,277 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from "react";
+import { Routes, Route, Navigate, useLocation, Link } from "react-router-dom";
 import {
-  Grid,
-  Card,
-  CardContent,
-  Typography,
   Box,
-  Avatar,
-  Paper,
+  AppBar,
+  Toolbar,
+  Typography,
+  Drawer,
   List,
   ListItem,
+  ListItemButton,
+  ListItemIcon,
   ListItemText,
-  ListItemAvatar,
-  Chip,
-  CircularProgress,
-  Alert
-} from '@mui/material';
+  IconButton,
+  Avatar,
+  Menu,
+  MenuItem,
+  Divider,
+  useTheme,
+  useMediaQuery,
+  Tooltip,
+} from "@mui/material";
 import {
+  Dashboard as DashboardIcon,
   People as PeopleIcon,
   School as SchoolIcon,
   Person as PersonIcon,
-  TrendingUp as TrendingUpIcon,
   Assessment as AssessmentIcon,
-  Home as HomeIcon
-} from '@mui/icons-material';
-import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+  Home as HomeIcon,
+  LibraryBooks as LibraryIcon,
+  Grade as GradeIcon,
+  Announcement as NoticeIcon,
+  Note as NoteIcon,
+  Menu as MenuIcon,
+  AccountCircle as AccountIcon,
+  Logout as LogoutIcon,
+} from "@mui/icons-material";
+import { useAuth } from "../../contexts/AuthContext";
+import Home from "./Home";
+import UserManagement from "./UserManagement";
+import StudentManagement from "./StudentManagement";
+import TeacherManagement from "./TeacherManagement";
+import AttendanceManagement from "./AttendanceManagement";
+import HostelManagement from "./HostelManagement";
+import LibraryManagement from "./LibraryManagement";
+import ResultsManagement from "./ResultsManagement";
+import NoticesManagement from "./NoticesManagement";
+import NotesManagement from "./NotesManagement";
 
-const StatCard = ({ title, value, icon, color, trend }) => (
-  <Card>
-    <CardContent>
-      <Box display="flex" alignItems="center" justifyContent="space-between">
-        <Box>
-          <Typography color="textSecondary" gutterBottom variant="h6">
-            {title}
-          </Typography>
-          <Typography variant="h4" component="h2">
-            {value}
-          </Typography>
-        </Box>
-        <Avatar sx={{ bgcolor: color, width: 56, height: 56 }}>
-          {icon}
-        </Avatar>
-      </Box>
-    </CardContent>
-  </Card>
-);
+const drawerWidth = 240;
 
 const Dashboard = () => {
-  const [stats, setStats] = useState({
-    total_students: 0,
-    total_teachers: 0,
-    total_users: 0,
-    active_students: 0,
-    active_teachers: 0,
-  });
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const { user, logout } = useAuth();
+  const location = useLocation();
 
-  const { data: dashboardData, isLoading, error } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: async () => {
-      const response = await axios.get('/accounts/dashboard-stats/');
-      return response.data;
-    },
-  });
-
-  useEffect(() => {
-    if (dashboardData) {
-      setStats(dashboardData);
-    }
-  }, [dashboardData]);
-
-  const recentActivities = [
-    // Recent activities will be populated from real data in the future
+  const menuItems = [
+    { text: "Dashboard", icon: <DashboardIcon />, path: "/admin" },
+    { text: "User Management", icon: <PeopleIcon />, path: "/admin/users" },
+    { text: "Students", icon: <SchoolIcon />, path: "/admin/students" },
+    { text: "Teachers", icon: <PersonIcon />, path: "/admin/teachers" },
+    { text: "Attendance", icon: <AssessmentIcon />, path: "/admin/attendance" },
+    { text: "Hostel", icon: <HomeIcon />, path: "/admin/hostel" },
+    { text: "Library", icon: <LibraryIcon />, path: "/admin/library" },
+    { text: "Results", icon: <GradeIcon />, path: "/admin/results" },
+    { text: "Notices", icon: <NoticeIcon />, path: "/admin/notices" },
+    { text: "Notes", icon: <NoteIcon />, path: "/admin/notes" },
   ];
 
-  const getActivityIcon = (type) => {
-    switch (type) {
-      case 'student':
-        return <SchoolIcon />;
-      case 'teacher':
-        return <PersonIcon />;
-      case 'attendance':
-        return <AssessmentIcon />;
-      case 'notice':
-        return <HomeIcon />;
-      default:
-        return <PeopleIcon />;
-    }
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
   };
 
-  const getActivityColor = (type) => {
-    switch (type) {
-      case 'student':
-        return 'primary';
-      case 'teacher':
-        return 'secondary';
-      case 'attendance':
-        return 'success';
-      case 'notice':
-        return 'warning';
-      default:
-        return 'default';
-    }
+  const handleProfileMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
   };
 
-  if (isLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const handleProfileMenuClose = () => {
+    setAnchorEl(null);
+  };
 
-  if (error) {
-    return (
-      <Alert severity="error">
-        Failed to load dashboard data. Please try again.
-      </Alert>
-    );
-  }
+  const handleLogout = () => {
+    logout();
+    handleProfileMenuClose();
+  };
+
+  const drawer = (
+    <Box
+      sx={{
+        height: "100%",
+        background: "linear-gradient(180deg, #1e3c72, #2a5298)",
+        color: "white",
+      }}
+    >
+      <Toolbar>
+        <Typography variant="h6" sx={{ fontWeight: "bold", mx: "auto" }}>
+          Admin Panel
+        </Typography>
+      </Toolbar>
+      <Divider sx={{ bgcolor: "rgba(255,255,255,0.2)" }} />
+      <List>
+        {menuItems.map((item) => {
+          const active = location.pathname === item.path;
+          return (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                component={Link}
+                to={item.path}
+                sx={{
+                  mx: 1,
+                  borderRadius: 2,
+                  mb: 0.5,
+                  color: active ? "#1e3c72" : "white",
+                  backgroundColor: active ? "white" : "transparent",
+                  transition: "0.3s",
+                  "&:hover": {
+                    backgroundColor: active
+                      ? "white"
+                      : "rgba(255,255,255,0.15)",
+                  },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    color: active ? "#1e3c72" : "white",
+                    minWidth: 40,
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  primaryTypographyProps={{
+                    fontWeight: active ? "bold" : "normal",
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
+      </List>
+    </Box>
+  );
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Admin Dashboard
-      </Typography>
-      <Typography variant="body1" color="text.secondary" gutterBottom>
-        Welcome to the Student Management System admin panel. Here's an overview of your institution.
-      </Typography>
+    <Box sx={{ display: "flex" }}>
+      {/* Top AppBar */}
+      <AppBar
+        position="fixed"
+        elevation={4}
+        sx={{
+          background: "linear-gradient(90deg, #1e3c72, #2a5298)",
+          width: { md: `calc(100% - ${drawerWidth}px)` },
+          ml: { md: `${drawerWidth}px` },
+        }}
+      >
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 2, display: { md: "none" } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography
+            variant="h6"
+            noWrap
+            sx={{ flexGrow: 1, fontWeight: "bold", letterSpacing: 0.5 }}
+          >
+            🎓 Student Management System (Admin)
+          </Typography>
 
-      <Grid container spacing={3} sx={{ mt: 2 }}>
-        {/* Statistics Cards */}
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title="Total Students"
-            value={stats.total_students}
-            icon={<SchoolIcon />}
-            color="primary.main"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title="Total Teachers"
-            value={stats.total_teachers}
-            icon={<PersonIcon />}
-            color="secondary.main"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title="Active Students"
-            value={stats.active_students}
-            icon={<TrendingUpIcon />}
-            color="success.main"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title="Active Teachers"
-            value={stats.active_teachers}
-            icon={<PeopleIcon />}
-            color="info.main"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title="Total Users"
-            value={stats.total_users}
-            icon={<PeopleIcon />}
-            color="warning.main"
-          />
-        </Grid>
+          <Tooltip title="Profile Menu">
+          <span>
+            <IconButton onClick={handleProfileMenuOpen} color="inherit">
+              <Avatar
+                sx={{
+                  width: 35,
+                  height: 35,
+                  bgcolor: "#fff",
+                  color: "#1e3c72",
+                  fontWeight: "bold",
+                }}
+              >
+                {user?.first_name?.[0] || user?.username?.[0] || "A"}
+              </Avatar>
+            </IconButton>
+          </span>
+          </Tooltip>
 
-        {/* Recent Activities */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Recent Activities
-            </Typography>
-            {recentActivities.length === 0 ? (
-              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                No recent activities to display. Activities will appear here as users interact with the system.
-              </Typography>
-            ) : (
-              <List>
-                {recentActivities.map((activity, index) => (
-                  <ListItem key={index} divider={index < recentActivities.length - 1}>
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: `${getActivityColor(activity.type)}.light` }}>
-                        {getActivityIcon(activity.type)}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={activity.action}
-                      secondary={
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Typography variant="body2" color="text.secondary">
-                            {activity.user}
-                          </Typography>
-                          <Chip
-                            label={activity.time}
-                            size="small"
-                            variant="outlined"
-                            color={getActivityColor(activity.type)}
-                          />
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </Paper>
-        </Grid>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleProfileMenuClose}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
+          >
+            <MenuItem onClick={handleProfileMenuClose}>
+              <ListItemIcon>
+                <AccountIcon fontSize="small" />
+              </ListItemIcon>
+              Profile
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={handleLogout}>
+              <ListItemIcon>
+                <LogoutIcon fontSize="small" color="error" />
+              </ListItemIcon>
+              Logout
+            </MenuItem>
+          </Menu>
+        </Toolbar>
+      </AppBar>
 
-        {/* Quick Actions */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Quick Actions
-            </Typography>
-            <List>
-              <ListItem button component="a" href="/admin/students">
-                <ListItemText primary="Add New Student" />
-              </ListItem>
-              <ListItem button component="a" href="/admin/teachers">
-                <ListItemText primary="Add New Teacher" />
-              </ListItem>
-              <ListItem button component="a" href="/admin/attendance">
-                <ListItemText primary="Mark Attendance" />
-              </ListItem>
-              <ListItem button component="a" href="/admin/notices">
-                <ListItemText primary="Publish Notice" />
-              </ListItem>
-            </List>
-          </Paper>
-        </Grid>
-      </Grid>
+      {/* Sidebar Drawer */}
+      <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: 0 }}>
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            display: { xs: "block", md: "none" },
+            "& .MuiDrawer-paper": { width: drawerWidth },
+          }}
+        >
+          {drawer}
+        </Drawer>
+
+        <Drawer
+          variant="permanent"
+          sx={{
+            display: { xs: "none", md: "block" },
+            "& .MuiDrawer-paper": {
+              width: drawerWidth,
+              border: "none",
+            },
+          }}
+          open
+        >
+          {drawer}
+        </Drawer>
+      </Box>
+
+      
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          bgcolor: "#f4f6f8",
+          width: { md: `calc(100% - ${drawerWidth}px)` },
+          transition: "0.3s ease",
+        }}
+      >
+        <Toolbar />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/users" element={<UserManagement />} />
+          <Route path="/students" element={<StudentManagement />} />
+          <Route path="/teachers" element={<TeacherManagement />} />
+          <Route path="/attendance" element={<AttendanceManagement />} />
+          <Route path="/hostel" element={<HostelManagement />} />
+          <Route path="/library" element={<LibraryManagement />} />
+          <Route path="/results" element={<ResultsManagement />} />
+          <Route path="/notices" element={<NoticesManagement />} />
+          <Route path="/notes" element={<NotesManagement />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Routes>
+      </Box>
     </Box>
   );
 };

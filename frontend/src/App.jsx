@@ -5,9 +5,9 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './contexts/AuthContext';
 import Login from './components/Login';
-import AdminDashboard from './components/AdminDashboard';
-import StudentDashboard from './components/StudentDashboard';
-import TeacherDashboard from './components/TeacherDashboard';
+import AdminDashboard from './components/admin/Dashboard';
+import StudentDashboard from './components/student/StudentDashboard';
+import TeacherDashboard from './components/teacher/TeacherDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Create a client

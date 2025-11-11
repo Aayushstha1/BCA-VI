@@ -1,13 +1,48 @@
 import React from 'react';
-import { Box, Typography, Paper, LinearProgress, Grid } from '@mui/material';
+import { Box, Typography, Paper, LinearProgress, Grid, CircularProgress, Alert } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Attendance = () => {
-  const subjects = [
-    { name: 'Mathematics I', percent: 95 },
-    { name: 'Physics', percent: 88 },
-    { name: 'Programming Basics', percent: 92 },
-    { name: 'English', percent: 86 },
-  ];
+  const { user } = useAuth();
+  const { data: records, isLoading, isError } = useQuery({
+    queryKey: ['attendance'],
+    queryFn: async () => {
+      const res = await axios.get('/attendance/');
+      const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+      return list;
+    },
+  });
+
+  // Group by subject and calculate percentage
+  const bySubject = {};
+  (records || []).forEach((r) => {
+    const subj = r.subject_name || r.subject || 'Subject';
+    if (!bySubject[subj]) {
+      bySubject[subj] = { total: 0, present: 0 };
+    }
+    bySubject[subj].total += 1;
+    if (['present', 'late'].includes(r.status)) {
+      bySubject[subj].present += 1;
+    }
+  });
+  const subjects = Object.keys(bySubject).map((name) => {
+    const s = bySubject[name];
+    const percent = s.total ? Math.round((s.present / s.total) * 100) : 0;
+    return { name, percent };
+  });
+
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="40vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+  if (isError) {
+    return <Alert severity="error">Failed to load attendance.</Alert>;
+  }
 
   return (
     <Box>
