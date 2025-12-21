@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+import uuid
 
 User = get_user_model()
 
@@ -54,6 +55,12 @@ class Teacher(models.Model):
     
     def __str__(self):
         return f"{self.employee_id} - {self.user.get_full_name()}"
+    
+    def save(self, *args, **kwargs):
+        if not self.employee_id:
+            # Generate unique employee ID if not provided
+            self.employee_id = f"TCH{str(uuid.uuid4())[:8].upper()}"
+        super().save(*args, **kwargs)
     
     class Meta:
         ordering = ['employee_id']

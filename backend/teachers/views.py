@@ -1,4 +1,5 @@
 from rest_framework import generics, status, permissions
+from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
 from .models import Teacher
 from .serializers import TeacherSerializer, TeacherCreateSerializer
@@ -29,7 +30,7 @@ class TeacherListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         # Only admin can create teachers
         if self.request.user.role != 'admin':
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            raise PermissionDenied('Only administrators can create teachers.')
         serializer.save()
 
 

@@ -99,7 +99,29 @@ const TeacherManagement = () => {
       });
     },
     onError: (error) => {
-      setError(error.response?.data?.message || 'Failed to create teacher');
+      // Handle validation errors from Django REST Framework
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (typeof errorData === 'string') {
+          setError(errorData);
+        } else if (errorData.message) {
+          setError(errorData.message);
+        } else if (errorData.detail) {
+          setError(errorData.detail);
+        } else {
+          // Format field-specific errors
+          const errorMessages = Object.entries(errorData)
+            .map(([field, messages]) => {
+              const fieldName = field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+              const messageList = Array.isArray(messages) ? messages.join(', ') : messages;
+              return `${fieldName}: ${messageList}`;
+            })
+            .join('\n');
+          setError(errorMessages || 'Failed to create teacher. Please check all required fields.');
+        }
+      } else {
+        setError('Failed to create teacher. Please try again.');
+      }
     }
   });
 
@@ -164,18 +186,62 @@ const TeacherManagement = () => {
   };
 
   const handleInputChange = (e) => {
+    const { name, value, type } = e.target;
+    
+    // Handle number inputs
+    let processedValue = value;
+    if (type === 'number') {
+      // For number inputs, convert empty string to 0 for experience_years, or empty string for salary
+      if (name === 'experience_years') {
+        processedValue = value === '' ? 0 : parseInt(value) || 0;
+      } else if (name === 'salary') {
+        processedValue = value === '' ? '' : value; // Keep as string, will be converted on submit
+      }
+    }
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: processedValue
     });
     setError('');
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Validate password confirmation
+    if (formData.password !== formData.password_confirm) {
+      setError('Passwords do not match');
+      return;
+    }
+    
+    // Remove password_confirm before sending (not needed by backend)
+    const { password_confirm, ...teacherData } = formData;
+    
+    // Clean up the data: convert empty strings to null for optional fields
+    // and ensure proper data types
+    const cleanedData = { ...teacherData };
+    
+    // Convert empty strings to null for optional fields
+    if (cleanedData.phone === '') cleanedData.phone = null;
+    if (cleanedData.salary === '') cleanedData.salary = null;
+    if (cleanedData.emergency_contact === '') cleanedData.emergency_contact = null;
+    if (cleanedData.emergency_contact_name === '') cleanedData.emergency_contact_name = null;
+    
+    // Ensure experience_years is an integer
+    cleanedData.experience_years = parseInt(cleanedData.experience_years) || 0;
+    
+    // Convert salary to number if it's not null
+    if (cleanedData.salary !== null && cleanedData.salary !== '') {
+      cleanedData.salary = parseFloat(cleanedData.salary);
+    }
+    
     setLoading(true);
-    createTeacherMutation.mutate(formData);
-    setLoading(false);
+    createTeacherMutation.mutate(cleanedData, {
+      onSettled: () => {
+        setLoading(false);
+      }
+    });
   };
 
   const teachersArray = Array.isArray(teachers) ? teachers : (teachers?.results || []);
