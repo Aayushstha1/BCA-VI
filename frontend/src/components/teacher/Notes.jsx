@@ -27,8 +27,8 @@ const Notes = () => {
     title: '',
     subject: '',
     category: '',
-    file_url: '',
   });
+  const [file, setFile] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -44,12 +44,17 @@ const Notes = () => {
   });
 
   const createNoteMutation = useMutation({
-    mutationFn: async (note) => {
-      const payload = { ...note };
-      Object.keys(payload).forEach((k) => {
-        if (payload[k] === '') delete payload[k];
+    mutationFn: async ({ title, subject, category, file }) => {
+      const formDataToSend = new FormData();
+      formDataToSend.append('title', title);
+      if (subject) formDataToSend.append('subject', subject);
+      if (category) formDataToSend.append('category', category);
+      if (file) {
+        formDataToSend.append('file', file);
+      }
+      const res = await axios.post('/notes/', formDataToSend, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      const res = await axios.post('/notes/', payload);
       return res.data;
     },
     onSuccess: () => {
@@ -59,14 +64,20 @@ const Notes = () => {
         title: '',
         subject: '',
         category: '',
-        file_url: '',
       });
+      setFile(null);
     },
     onError: (e) => setError(e.response?.data?.message || 'Failed to create note'),
   });
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError('');
+  };
+
+  const handleFileChange = (e) => {
+    const selected = e.target.files && e.target.files[0];
+    setFile(selected || null);
     setError('');
   };
 
@@ -101,15 +112,35 @@ const Notes = () => {
       </Box>
       <Paper>
         <List>
-          {notes.map((n, i) => (
-            <ListItem key={n.id || i} divider>
-              <ListItemText
-                primary={n.title || 'Note'}
-                secondary={n.subject_name || n.subject || ''}
-              />
-              <Chip label={n.category_name || n.category || 'File'} />
-            </ListItem>
-          ))}
+          {notes.map((n, i) => {
+            const filePath = n.file_url || n.file;
+            let href = filePath || '';
+            if (href && !href.startsWith('http')) {
+              const base = (axios.defaults.baseURL || '').replace('/api', '');
+              href = `${base}${href}`;
+            }
+            return (
+              <ListItem key={n.id || i} divider>
+                <ListItemText
+                  primary={n.title || 'Note'}
+                  secondary={n.subject_name || n.subject || ''}
+                />
+                {filePath ? (
+                  <Chip
+                    label="Open file"
+                    component="a"
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    clickable
+                    color="primary"
+                  />
+                ) : (
+                  <Chip label={n.category_name || n.category || 'File'} />
+                )}
+              </ListItem>
+            );
+          })}
           {notes.length === 0 && (
             <ListItem>
               <ListItemText
@@ -128,9 +159,17 @@ const Notes = () => {
           onSubmit={(e) => {
             e.preventDefault();
             setLoading(true);
-            createNoteMutation.mutate(formData, {
-              onSettled: () => setLoading(false),
-            });
+            createNoteMutation.mutate(
+              {
+                title: formData.title,
+                subject: formData.subject,
+                category: formData.category,
+                file,
+              },
+              {
+                onSettled: () => setLoading(false),
+              },
+            );
           }}
         >
           <DialogContent>
@@ -172,11 +211,10 @@ const Notes = () => {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="File URL"
-                  name="file_url"
-                  value={formData.file_url}
-                  onChange={handleInputChange}
-                  helperText="Paste link to the file"
+                  type="file"
+                  inputProps={{ accept: 'application/pdf,image/*' }}
+                  onChange={handleFileChange}
+                  helperText="Upload PDF or image"
                 />
               </Grid>
             </Grid>
