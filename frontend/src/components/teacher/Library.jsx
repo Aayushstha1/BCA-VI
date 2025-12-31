@@ -36,6 +36,7 @@ const Library = () => {
 
   const queryClient = useQueryClient();
 
+  // Fetch books
   const { data: books, isLoading, isError } = useQuery({
     queryKey: ['books'],
     queryFn: async () => {
@@ -44,20 +45,17 @@ const Library = () => {
     },
   });
 
+  // Mutation to create book
   const createBookMutation = useMutation({
     mutationFn: async ({ title, author, file }) => {
-      const formDataToSend = new FormData();
-      formDataToSend.append('title', title);
-      formDataToSend.append('author', author);
-      // Backend requires a category; default to "other" when adding from teacher UI
-      formDataToSend.append('category', 'other');
-      // Sensible defaults so backend validations pass
-      formDataToSend.append('total_copies', '1');
-      formDataToSend.append('available_copies', '1');
-      if (file) {
-        formDataToSend.append('file', file);
-      }
-      const res = await axios.post('/library/books/', formDataToSend, {
+      const data = new FormData();
+      data.append('title', title);
+      data.append('author', author);
+      data.append('category', 'other');
+      data.append('total_copies', '1');
+      data.append('available_copies', '1');
+      if (file) data.append('file', file); // merge simplified code logic
+      const res = await axios.post('/library/books/', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       return res.data;
@@ -65,10 +63,7 @@ const Library = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['books']);
       setOpenDialog(false);
-      setFormData({
-        title: '',
-        author: '',
-      });
+      setFormData({ title: '', author: '' });
       setFile(null);
     },
     onError: (e) => setError(e.response?.data?.message || 'Failed to add book'),
@@ -184,8 +179,8 @@ const Library = () => {
             createBookMutation.mutate(
               { title: formData.title, author: formData.author, file },
               {
-              onSettled: () => setLoading(false),
-              },
+                onSettled: () => setLoading(false),
+              }
             );
           }}
         >
@@ -240,5 +235,3 @@ const Library = () => {
 };
 
 export default Library;
-
-

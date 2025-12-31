@@ -18,6 +18,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const Library = () => {
   const { user } = useAuth();
 
+  // Fetch books issued to students
   const {
     data: issues,
     isLoading: isIssuesLoading,
@@ -31,6 +32,7 @@ const Library = () => {
     },
   });
 
+  // Fetch all books
   const {
     data: books,
     isLoading: isBooksLoading,
@@ -44,14 +46,14 @@ const Library = () => {
     },
   });
 
-  const items = (issues || []).filter((i) => {
-    // Match by student_name/id when available; fallback to show all
-    return !i.student || !user
+  // Filter issues for current student
+  const myIssuedBooks = (issues || []).filter((i) =>
+    !i.student || !user
       ? true
-      : (i.student === user.id || i.student_id || '').toString().length > 0;
-  });
+      : (i.student === user.id || i.student_id || '').toString().length > 0
+  );
 
-  const color = (status) => (status === 'Issued' ? 'warning' : 'success');
+  const statusColor = (status) => (status === 'Issued' ? 'warning' : 'success');
 
   if (isIssuesLoading || isBooksLoading) {
     return (
@@ -60,6 +62,7 @@ const Library = () => {
       </Box>
     );
   }
+
   if (isIssuesError || isBooksError) {
     return <Alert severity="error">Failed to load library data.</Alert>;
   }
@@ -78,24 +81,20 @@ const Library = () => {
           My Issued Books
         </Typography>
         <List>
-          {items.length === 0 && (
+          {myIssuedBooks.length === 0 && (
             <ListItem>
               <ListItemText primary="No books issued yet." />
             </ListItem>
           )}
-          {items.map((b, i) => (
+          {myIssuedBooks.map((b, i) => (
             <ListItem key={i} divider>
               <ListItemText
                 primary={b.book_title || b.book?.title || 'Book'}
                 secondary={`Due: ${b.due_date || '-'}`}
               />
               <Chip
-                label={
-                  (b.status || '').charAt(0).toUpperCase() + (b.status || '').slice(1)
-                }
-                color={color(
-                  (b.status || '').charAt(0).toUpperCase() + (b.status || '').slice(1),
-                )}
+                label={(b.status || '').charAt(0).toUpperCase() + (b.status || '').slice(1)}
+                color={statusColor((b.status || '').charAt(0).toUpperCase() + (b.status || '').slice(1))}
               />
             </ListItem>
           ))}
@@ -104,7 +103,7 @@ const Library = () => {
 
       <Divider sx={{ my: 2 }} />
 
-      {/* All available books in library */}
+      {/* All available books */}
       <Paper>
         <Typography variant="h6" sx={{ px: 2, pt: 2 }}>
           Available Books
@@ -116,20 +115,18 @@ const Library = () => {
             </ListItem>
           )}
           {booksArray.map((book) => {
-            const filePath = book.file_url || book.file;
-            let href = filePath || '';
-            if (href && !href.startsWith('http')) {
-              const base = (axios.defaults.baseURL || '').replace('/api', '');
-              href = `${base}${href}`;
+            let fileUrl = book.file_url || book.file;
+            if (fileUrl && !fileUrl.startsWith('http')) {
+              fileUrl = `${axios.defaults.baseURL.replace('/api', '')}${fileUrl}`;
             }
             return (
               <ListItem key={book.id} divider>
                 <ListItemText primary={book.title} secondary={book.author || ''} />
-                {filePath ? (
+                {fileUrl ? (
                   <Chip
                     label="Open PDF"
                     component="a"
-                    href={href}
+                    href={fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     clickable
@@ -148,5 +145,3 @@ const Library = () => {
 };
 
 export default Library;
-
-
