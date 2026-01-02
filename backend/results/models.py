@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from students.models import Student
 from attendance.models import Subject
 
@@ -34,7 +35,7 @@ class Exam(models.Model):
 
 class Result(models.Model):
     """
-    Result model for managing student exam results
+    Result model for managing student exam results with approval workflow
     """
     GRADE_CHOICES = [
         ('A+', 'A+'),
@@ -47,11 +48,25 @@ class Result(models.Model):
         ('F', 'F'),
     ]
     
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+        ('pending_approval', 'Pending Approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='results')
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='results')
     marks_obtained = models.PositiveIntegerField()
     grade = models.CharField(max_length=2, choices=GRADE_CHOICES, blank=True, null=True)
     remarks = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    published_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='published_results')
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_results')
+    approval_remarks = models.TextField(blank=True, null=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

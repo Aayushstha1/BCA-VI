@@ -12,4 +12,6 @@ urlpatterns = [
     path('exams/<int:pk>/', views.ExamDetailView.as_view(), name='exam-detail'),
     path('', views.ResultListCreateView.as_view(), name='result-list-create'),
     path('<int:pk>/', views.ResultDetailView.as_view(), name='result-detail'),
+    path('publish/', views.PublishResultsView.as_view(), name='publish-results'),
+    path('approve/', views.ApproveResultsView.as_view(), name='approve-results'),
 ]
