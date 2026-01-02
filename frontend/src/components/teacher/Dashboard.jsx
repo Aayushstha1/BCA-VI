@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, Typography, Grid, Paper, CircularProgress, Alert } from '@mui/material';
-import { Class as ClassIcon, Assessment, LibraryBooks, Note, CalendarMonth, Groups } from '@mui/icons-material';
+import { Box, Typography, Grid, Paper, CircularProgress, Alert, List, ListItem, ListItemText, Divider } from '@mui/material';
+import { Class as ClassIcon, Assessment, LibraryBooks, Note, CalendarMonth, Groups, Campaign } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 
@@ -86,6 +86,18 @@ const TeacherHome = () => {
       const res = await axios.get('/library/books/');
       const list = Array.isArray(res.data) ? res.data : res.data?.results || [];
       return list;
+    },
+  });
+
+  // Notices
+  const {
+    data: notices,
+    isLoading: noticesLoading,
+  } = useQuery({
+    queryKey: ['notices'],
+    queryFn: async () => {
+      const res = await axios.get('notices/');
+      return Array.isArray(res.data) ? res.data.slice(0, 5) : (res.data?.results || []).slice(0, 5);
     },
   });
 
@@ -190,6 +202,38 @@ const TeacherHome = () => {
             value={notesUpdated}
             color="error"
           />
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={2} sx={{ mt: 2 }}>
+        <Grid item xs={12} md={8}>
+          <Paper sx={{ p: 2 }}>
+            <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1 }}>
+              <Campaign color="primary" />
+              <Typography variant="h6">Recent Notices</Typography>
+            </Box>
+            <Divider sx={{ mb: 1 }} />
+            {noticesLoading ? (
+              <Box display="flex" justifyContent="center" p={2}>
+                <CircularProgress size={30} />
+              </Box>
+            ) : (notices && notices.length > 0) ? (
+              <List>
+                {notices.map((notice) => (
+                  <ListItem key={notice.id}>
+                    <ListItemText 
+                      primary={notice.title}
+                      secondary={`${notice.priority} • ${new Date(notice.published_at).toLocaleDateString()}`}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <Typography color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+                No notices yet.
+              </Typography>
+            )}
+          </Paper>
         </Grid>
       </Grid>
     </Box>

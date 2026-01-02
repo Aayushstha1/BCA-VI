@@ -30,7 +30,8 @@ import {
   LibraryBooks as LibraryIcon,
   Grade as ResultsIcon,
   Note as NotesIcon,
-  Badge as AdmissionIcon
+  Badge as AdmissionIcon,
+  Campaign as NoticesIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import StudentHome from './Dashboard';
@@ -41,6 +42,7 @@ import Attendance from './Attendance';
 import Results from './Results';
 import Notes from './Notes';
 import Finance from './Finance';
+import Notices from './Notices';
 import { Wallet } from '@mui/icons-material';
 
 const drawerWidth = 220;
@@ -57,6 +59,7 @@ const StudentDashboard = () => {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/student' },
     { text: 'Report Card', icon: <ReportIcon />, path: '/student/report-card' },
     { text: 'Admission', icon: <AdmissionIcon />, path: '/student/admission' },
+    { text: 'Notices', icon: <NoticesIcon />, path: '/student/notices' },
     { text: 'Library', icon: <LibraryIcon />, path: '/student/library' },
     { text: 'Finance', icon: <Wallet />, path: '/student/finance' },
     { text: 'Attendance', icon: <AttendanceIcon />, path: '/student/attendance' },
@@ -210,6 +213,7 @@ const StudentDashboard = () => {
           <Route path="/" element={<StudentHome />} />
           <Route path="/report-card" element={<ReportCard />} />
           <Route path="/admission" element={<AdmissionRecords />} />
+          <Route path="/notices" element={<Notices />} />
           <Route path="/library" element={<Library />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/finance" element={<Finance />} />
