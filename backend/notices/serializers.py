@@ -15,6 +15,12 @@ class NoticeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notice
         fields = '__all__'
+        read_only_fields = ('published_by', 'published_at')
+    
+    def create(self, validated_data):
+        # Automatically set published_by to the current user
+        validated_data['published_by'] = self.context['request'].user
+        return super().create(validated_data)
 
 
 class NoticeReadSerializer(serializers.ModelSerializer):

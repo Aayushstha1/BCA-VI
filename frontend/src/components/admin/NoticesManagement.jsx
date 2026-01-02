@@ -37,7 +37,7 @@ const NoticesManagement = () => {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    category: '',
+    category: null,
     priority: 'medium',
     target_audience: 'all',
     expires_at: ''
@@ -50,7 +50,7 @@ const NoticesManagement = () => {
   const { data: notices, isLoading } = useQuery({
     queryKey: ['notices'],
     queryFn: async () => {
-      const response = await axios.get('/notices/');
+      const response = await axios.get('notices/');
       return response.data;
     },
   });
@@ -58,30 +58,33 @@ const NoticesManagement = () => {
   const { data: categories } = useQuery({
     queryKey: ['notice-categories'],
     queryFn: async () => {
-      const response = await axios.get('/notices/categories/');
+      const response = await axios.get('notices/categories/');
       return response.data;
     },
   });
 
   const createNoticeMutation = useMutation({
     mutationFn: async (noticeData) => {
-      const response = await axios.post('/notices/', noticeData);
+      const response = await axios.post('notices/', noticeData);
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['notices']);
+      queryClient.invalidateQueries({ queryKey: ['notices'] });
       setOpenDialog(false);
       setFormData({
         title: '',
         content: '',
-        category: '',
+        category: null,
         priority: 'medium',
         target_audience: 'all',
         expires_at: ''
       });
     },
     onError: (error) => {
-      setError(error.response?.data?.message || 'Failed to publish notice');
+      const errorMsg = typeof error.response?.data === 'object' 
+        ? JSON.stringify(error.response.data) 
+        : error.response?.data?.message || 'Failed to publish notice';
+      setError(errorMsg);
     }
   });
 
@@ -96,7 +99,7 @@ const NoticesManagement = () => {
     setFormData({
       title: '',
       content: '',
-      category: '',
+      category: null,
       priority: 'medium',
       target_audience: 'all',
       expires_at: ''
@@ -277,15 +280,21 @@ const NoticesManagement = () => {
                   <InputLabel>Category</InputLabel>
                   <Select
                     name="category"
-                    value={formData.category}
+                    value={formData.category || ''}
                     onChange={handleInputChange}
                     label="Category"
                   >
-                    {(Array.isArray(categories) ? categories : (categories?.results || [])).map((category) => (
-                      <MenuItem key={category.id} value={category.id}>
-                        {category.name}
+                    {(Array.isArray(categories) ? categories : (categories?.results || [])).length === 0 ? (
+                      <MenuItem disabled>
+                        No categories available. Please create categories in admin panel.
                       </MenuItem>
-                    ))}
+                    ) : (
+                      (Array.isArray(categories) ? categories : (categories?.results || [])).map((category) => (
+                        <MenuItem key={category.id} value={category.id}>
+                          {category.name}
+                        </MenuItem>
+                      ))
+                    )}
                   </Select>
                 </FormControl>
               </Grid>

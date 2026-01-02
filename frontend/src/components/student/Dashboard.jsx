@@ -1,7 +1,9 @@
 import React from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Typography, Grid, Paper, List, ListItem, ListItemText, Divider, Button, Link } from '@mui/material';
+import { Box, Typography, Grid, Paper, List, ListItem, ListItemText, Divider, Button, Link, CircularProgress } from '@mui/material';
 import { Assessment, LibraryBooks, Grade, Wallet, School, Note, Campaign } from '@mui/icons-material';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 
 const StatCard = ({ icon, label, value, color, to }) => {
   return (
@@ -54,6 +56,14 @@ const StudentHome = () => {
     { icon: <Note />, label: 'New Notes', value: '—', color: 'error', to: '/student/notes' },
   ];
 
+  const { data: notices, isLoading } = useQuery({
+    queryKey: ['notices'],
+    queryFn: async () => {
+      const response = await axios.get('notices/');
+      return Array.isArray(response.data) ? response.data.slice(0, 5) : (response.data?.results || []).slice(0, 5);
+    },
+  });
+
   return (
     <Box>
       <Typography variant="h4" sx={{ mb: 3 }}>
@@ -75,11 +85,28 @@ const StudentHome = () => {
               <Button size="small" component={RouterLink} to="/student/notes">View all</Button>
             </Box>
             <Divider sx={{ mb: 1 }} />
-            <List>
-              <ListItem>
-                <ListItemText primary="No notices yet." secondary="Check back soon." />
-              </ListItem>
-            </List>
+            {isLoading ? (
+              <Box display="flex" justifyContent="center" p={2}>
+                <CircularProgress size={30} />
+              </Box>
+            ) : (notices && notices.length > 0) ? (
+              <List>
+                {notices.map((notice) => (
+                  <ListItem key={notice.id}>
+                    <ListItemText 
+                      primary={notice.title}
+                      secondary={`${notice.priority} • ${new Date(notice.published_at).toLocaleDateString()}`}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <List>
+                <ListItem>
+                  <ListItemText primary="No notices yet." secondary="Check back soon." />
+                </ListItem>
+              </List>
+            )}
           </Paper>
         </Grid>
         <Grid item xs={12} md={5}>

@@ -18,9 +18,15 @@ class NoticeCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class NoticeListCreateView(generics.ListCreateAPIView):
-    queryset = Notice.objects.all()
     serializer_class = NoticeSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Show only active, non-expired notices, ordered by pinned and date
+        from django.utils import timezone
+        return Notice.objects.filter(is_active=True).exclude(
+            expires_at__lt=timezone.now()
+        ).order_by('-is_pinned', '-published_at')
 
 
 class NoticeDetailView(generics.RetrieveUpdateDestroyAPIView):
