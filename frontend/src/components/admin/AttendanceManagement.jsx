@@ -45,6 +45,10 @@ import axios from 'axios';
 const AttendanceManagement = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [openQRDialog, setOpenQRDialog] = useState(false);
+  const [openMarkDialog, setOpenMarkDialog] = useState(false);
+  const [students, setStudents] = useState([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [attendanceMarks, setAttendanceMarks] = useState({});
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -145,6 +149,66 @@ const AttendanceManagement = () => {
     setQrCode(`ATTENDANCE:${attendanceId}:${selectedDate}`);
     setActiveSessionId(attendanceId);
     setError('');
+  };
+
+  const handleOpenMarkDialog = async (attendance) => {
+    setOpenMarkDialog(true);
+    setActiveSessionId(attendance.id);
+    setError('');
+    setStudentsLoading(true);
+
+    try {
+      // Fetch students for the class and section of the attendance session
+      const response = await axios.get(`/students/?class=${encodeURIComponent(attendance.class_name)}&section=${encodeURIComponent(attendance.section || '')}`);
+      const studentsData = Array.isArray(response.data) ? response.data : (response.data.results || []);
+      setStudents(studentsData);
+
+      // Initialize marks to absent by default
+      const initialMarks = {};
+      studentsData.forEach((s) => { initialMarks[s.id] = 'absent'; });
+      setAttendanceMarks(initialMarks);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load students');
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
+
+  const handleCloseMarkDialog = () => {
+    setOpenMarkDialog(false);
+    setStudents([]);
+    setAttendanceMarks({});
+    setActiveSessionId(null);
+    setError('');
+  };
+
+  const toggleStudentStatus = (studentId) => {
+    setAttendanceMarks(prev => ({
+      ...prev,
+      [studentId]: prev[studentId] === 'present' ? 'absent' : 'present'
+    }));
+  };
+
+  const handleSaveMarks = async () => {
+    if (!activeSessionId) return;
+    setLoading(true);
+    try {
+      const posts = Object.keys(attendanceMarks).map((studentId) => {
+        return axios.post('/attendance/mark/', {
+          session: activeSessionId,
+          student: parseInt(studentId, 10),
+          status: attendanceMarks[studentId],
+        });
+      });
+
+      await Promise.all(posts);
+      queryClient.invalidateQueries(['sessions']);
+      handleCloseMarkDialog();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save attendance marks');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCloseQRDialog = () => {
@@ -288,14 +352,23 @@ const AttendanceManagement = () => {
                     </Box>
                     
                     <Box display="flex" justifyContent="space-between" alignItems="center">
-                      <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<QRScannerIcon />}
-                        onClick={() => handleOpenQRDialog(attendance.id)}
-                      >
-                        QR Scanner
-                      </Button>
+                      <Box display="flex" gap={1}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={() => handleOpenMarkDialog(attendance)}
+                        >
+                          Mark Attendance
+                        </Button>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<QRScannerIcon />}
+                          onClick={() => handleOpenQRDialog(attendance.id)}
+                        >
+                          QR Scanner
+                        </Button>
+                      </Box>
                       <Box>
                         <Tooltip title="View Details">
                           <IconButton size="small">
@@ -414,6 +487,57 @@ const AttendanceManagement = () => {
       </Dialog>
 
       {/* QR Code Scanner Dialog */}
+      {/* Mark Attendance Dialog */}
+      <Dialog open={openMarkDialog} onClose={handleCloseMarkDialog} maxWidth="md" fullWidth>
+        <DialogTitle>Mark Attendance</DialogTitle>
+        <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          {studentsLoading ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Roll</TableCell>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Class</TableCell>
+                    <TableCell align="center">Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {students.map((s) => (
+                    <TableRow key={s.id} hover>
+                      <TableCell>{s.roll_number || '-'}</TableCell>
+                      <TableCell>{s.user?.first_name} {s.user?.last_name}</TableCell>
+                      <TableCell>{s.current_class} {s.current_section}</TableCell>
+                      <TableCell align="center">
+                        <FormControlLabel
+                          control={<Switch checked={attendanceMarks[s.id] === 'present'} onChange={() => toggleStudentStatus(s.id)} />}
+                          label={attendanceMarks[s.id] === 'present' ? 'Present' : 'Absent'}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseMarkDialog}>Cancel</Button>
+          <Button variant="contained" onClick={handleSaveMarks} disabled={loading || studentsLoading}>
+            {loading ? <CircularProgress size={20} /> : 'Save Marks'}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog open={openQRDialog} onClose={handleCloseQRDialog} maxWidth="sm" fullWidth>
         <DialogTitle>QR Code Attendance Scanner</DialogTitle>
         <DialogContent>
