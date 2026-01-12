@@ -120,9 +120,9 @@ class Student(models.Model):
     
     def get_qr_code_data(self):
         """
-        Return QR code data as dictionary
+        Return QR code data as dictionary, including borrowed books and recent results.
         """
-        return {
+        data = {
             'student_id': self.student_id,
             'name': self.user.get_full_name(),
             'class': self.current_class,
@@ -131,6 +131,42 @@ class Student(models.Model):
             'admission_number': self.admission_number,
             'qr_code_url': self.qr_code.url if self.qr_code else None,
         }
+
+        # Add borrowed books (current issues)
+        try:
+            from library.models import BookIssue
+            issues = BookIssue.objects.filter(student=self, status='issued').select_related('book')
+            data['borrowed_books'] = [
+                {
+                    'book_id': i.book.id,
+                    'title': i.book.title,
+                    'issued_date': i.issued_date.isoformat() if i.issued_date else None,
+                    'status': i.status,
+                }
+                for i in issues
+            ]
+        except Exception:
+            data['borrowed_books'] = []
+
+        # Add recent published results
+        try:
+            from results.models import Result
+            recent_results = self.results.filter(status='published').select_related('exam').order_by('-published_at')[:5]
+            data['recent_results'] = []
+            for r in recent_results:
+                passed = r.marks_obtained >= r.exam.passing_marks if r.exam and r.exam.passing_marks is not None else (r.grade is not None and r.grade != 'F')
+                data['recent_results'].append({
+                    'exam': r.exam.name if r.exam else None,
+                    'marks_obtained': r.marks_obtained,
+                    'total_marks': r.exam.total_marks if r.exam else None,
+                    'grade': r.grade,
+                    'status': r.status,
+                    'passed': passed,
+                })
+        except Exception:
+            data['recent_results'] = []
+
+        return data
     
     class Meta:
         ordering = ['student_id']

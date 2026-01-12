@@ -333,7 +333,6 @@ const StudentManagement = () => {
                       <Tooltip title="View QR Code">
                       <IconButton size="small" onClick={async () => {
                         setSelectedStudent(student);
-                        setOpenQRDialog(true);
                         setError('');
                         try {
                           const resp = await axios.get(`/students/${student.id}/qr-code/`);
@@ -341,6 +340,7 @@ const StudentManagement = () => {
                         } catch (e) {
                           setQrData(null);
                         }
+                        setOpenQRDialog(true);
                       }}>
                           <QRCodeIcon />
                         </IconButton>
@@ -694,12 +694,14 @@ const StudentManagement = () => {
                 {selectedStudent.user_details?.first_name} {selectedStudent.user_details?.last_name}
               </Typography>
               <Box sx={{ display: 'flex', gap: 3, alignItems: 'center', mb: 2 }}>
-                {selectedStudent.qr_code && (
+                {(qrData?.qr_code_url || selectedStudent?.qr_code) ? (
                   <img
                     alt="QR Code"
                     style={{ width: 160, height: 160 }}
-                    src={`${axios.defaults.baseURL.replace('/api','')}${selectedStudent.qr_code}`}
+                    src={qrData?.qr_code_url || (selectedStudent.qr_code ? `${axios.defaults.baseURL.replace('/api','')}${selectedStudent.qr_code}` : '')}
                   />
+                ) : (
+                  <Typography color="text.secondary">No QR image available</Typography>
                 )}
                 <Box>
                   <Typography variant="body2">Student ID: {selectedStudent.student_id}</Typography>
@@ -708,10 +710,32 @@ const StudentManagement = () => {
                   <Typography variant="body2">Roll: {selectedStudent.roll_number}</Typography>
                 </Box>
               </Box>
+              {/* Display domain-specific info instead of raw QR payload */}
               {qrData && (
                 <Box sx={{ mt: 1 }}>
-                  <Typography variant="subtitle2">QR Encoded Data</Typography>
-                  <pre style={{ background:'#f6f8fa', padding: 8, borderRadius: 6, overflowX: 'auto' }}>{JSON.stringify(qrData, null, 2)}</pre>
+                  {/* Borrowed books */}
+                  {Array.isArray(qrData.borrowed_books) && qrData.borrowed_books.length > 0 ? (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle2">Borrowed Books</Typography>
+                      {qrData.borrowed_books.map((b, i) => (
+                        <Typography key={i} variant="body2">{b.title} — Issued: {b.issued_date || 'N/A'} — Status: {b.status}</Typography>
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">No borrowed books.</Typography>
+                  )}
+
+                  {/* Recent results */}
+                  {Array.isArray(qrData.recent_results) && qrData.recent_results.length > 0 ? (
+                    <Box>
+                      <Typography variant="subtitle2">Recent Results</Typography>
+                      {qrData.recent_results.map((r, i) => (
+                        <Typography key={i} variant="body2">{r.exam}: {r.marks_obtained}/{r.total_marks} — Grade: {r.grade || 'N/A'} — {r.passed ? 'Pass' : 'Fail'}</Typography>
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">No recent results available.</Typography>
+                  )}
                 </Box>
               )}
             </Box>

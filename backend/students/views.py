@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from django.db.models import Q
 from .models import Student
 from .serializers import StudentSerializer, StudentCreateSerializer, StudentSearchSerializer
+import logging
 
 
 class StudentListCreateView(generics.ListCreateAPIView):
@@ -33,10 +34,19 @@ class StudentListCreateView(generics.ListCreateAPIView):
         
         return queryset
     
+    def list(self, request, *args, **kwargs):
+        # Defensive: catch unexpected serialization errors to avoid 500s without logs
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            logging.exception('Failed to list students')
+            return Response({'error': 'Internal server error while listing students'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     def perform_create(self, serializer):
         # Only admin can create students
+        from rest_framework.exceptions import PermissionDenied
         if self.request.user.role != 'admin':
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            raise PermissionDenied('Permission denied')
         serializer.save()
 
 
@@ -76,7 +86,23 @@ class StudentQRCodeView(generics.RetrieveAPIView):
             student.user != request.user):
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
         
+        # Ensure a QR image exists; generate if missing
+        if not student.qr_code:
+            student.generate_qr_code()
+            student.save()
+
         qr_data = student.get_qr_code_data()
+        # Also include absolute URL to QR image when possible
+        request_obj = request
+        if student.qr_code:
+            try:
+                qr_url = student.qr_code.url
+                if request_obj:
+                    qr_url = request_obj.build_absolute_uri(qr_url)
+                qr_data['qr_code_url'] = qr_url
+            except Exception:
+                pass
+
         return Response(qr_data)
 
 

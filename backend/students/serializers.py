@@ -10,26 +10,87 @@ class StudentSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)
     user_details = serializers.SerializerMethodField()
     qr_code_data = serializers.SerializerMethodField()
+    qr_code = serializers.SerializerMethodField()
+    qr_code_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Student
-        fields = '__all__'
+        # Explicit list to avoid accidentally exposing fields like internal password
+        fields = [
+            'id', 'student_id', 'admission_number', 'admission_date',
+            'user', 'user_details', 'date_of_birth', 'gender', 'blood_group',
+            'father_name', 'mother_name', 'guardian_contact',
+            'current_class', 'current_section', 'roll_number', 'qr_code', 'qr_code_url', 'qr_code_data',
+            'is_active', 'created_at', 'updated_at'
+        ]
         read_only_fields = ['student_id', 'admission_number', 'qr_code', 'created_at', 'updated_at']
     
     def get_user_details(self, obj):
-        return {
-            'id': obj.user.id,
-            'username': obj.user.username,
-            'email': obj.user.email,
-            'first_name': obj.user.first_name,
-            'last_name': obj.user.last_name,
-            'phone': obj.user.phone,
-            'profile_picture': obj.user.profile_picture.url if obj.user.profile_picture else None,
-        }
+        # Explicitly return only non-sensitive user fields and be defensive
+        try:
+            profile_picture_url = None
+            try:
+                if obj.user.profile_picture:
+                    profile_picture_url = obj.user.profile_picture.url
+            except Exception:
+                profile_picture_url = None
+
+            return {
+                'id': obj.user.id,
+                'username': obj.user.username,
+                'email': obj.user.email,
+                'first_name': obj.user.first_name,
+                'last_name': obj.user.last_name,
+                'phone': obj.user.phone,
+                'profile_picture': profile_picture_url,
+            }
+        except Exception:
+            # If user relation is broken, return minimal safe info
+            return {
+                'id': None,
+                'username': None,
+                'email': None,
+                'first_name': None,
+                'last_name': None,
+                'phone': None,
+                'profile_picture': None,
+            }
     
     def get_qr_code_data(self, obj):
-        return obj.get_qr_code_data()
+        try:
+            return obj.get_qr_code_data()
+        except Exception:
+            return {}
 
+    def get_qr_code(self, obj):
+        # Return a safe relative or absolute URL string for the image
+        if not obj.qr_code:
+            return None
+        try:
+            return obj.qr_code.url
+        except Exception:
+            return None
+
+    def get_qr_code_url(self, obj):
+        # Return absolute URL when request context is available
+        try:
+            url = None
+            if obj.qr_code:
+                try:
+                    url = obj.qr_code.url
+                except Exception:
+                    url = None
+            if not url:
+                return None
+            request = self.context.get('request') if hasattr(self, 'context') else None
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        except Exception:
+            return None
+
+
+from django.db import IntegrityError, transaction
 
 class StudentCreateSerializer(serializers.ModelSerializer):
     """
@@ -50,6 +111,15 @@ class StudentCreateSerializer(serializers.ModelSerializer):
             'father_name', 'mother_name', 'guardian_contact',
             'current_class', 'current_section', 'roll_number'
         ]
+
+    def validate(self, attrs):
+        username = attrs.get('username')
+        email = attrs.get('email')
+        if User.objects.filter(username=username).exists():
+            raise serializers.ValidationError({'username': 'A user with that username already exists.'})
+        if email and User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({'email': 'A user with that email already exists.'})
+        return attrs
     
     def create(self, validated_data):
         # Create user account first
@@ -64,14 +134,18 @@ class StudentCreateSerializer(serializers.ModelSerializer):
         
         if 'phone' in validated_data:
             user_data['phone'] = validated_data.pop('phone')
-        
-        user = User.objects.create_user(**user_data)
-        
-        # Create student profile
-        validated_data['user'] = user
-        student = Student.objects.create(**validated_data)
-        
-        return student
+
+        # Use a transaction to avoid partial creations and handle integrity errors
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(**user_data)
+                # Create student profile
+                validated_data['user'] = user
+                student = Student.objects.create(**validated_data)
+                return student
+        except IntegrityError as e:
+            # Convert DB integrity errors into serializer validation errors for client
+            raise serializers.ValidationError({'detail': 'A user with that username or email already exists.'})
 
 
 class StudentSearchSerializer(serializers.Serializer):

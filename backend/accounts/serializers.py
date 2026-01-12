@@ -9,8 +9,15 @@ class UserSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = User
+        # Explicitly exclude the password field to ensure it is never returned
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone', 'address', 'profile_picture', 'is_active', 'date_joined']
         read_only_fields = ['id', 'date_joined']
+
+    def to_representation(self, instance):
+        """Ensure password is never present in serialized output even if model changes."""
+        data = super().to_representation(instance)
+        data.pop('password', None)
+        return data
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
