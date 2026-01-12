@@ -103,6 +103,13 @@ class StudentQRCodeView(generics.RetrieveAPIView):
             except Exception:
                 pass
 
+        # Also include a profile URL for the frontend if configured
+        try:
+            from django.conf import settings
+            qr_data['profile_url'] = f"{getattr(settings, 'FRONTEND_URL', '').rstrip('/')}" + f"/public/student/{student.student_id}"
+        except Exception:
+            pass
+
         return Response(qr_data)
 
 
@@ -133,3 +140,27 @@ class StudentSearchView(generics.ListAPIView):
             queryset = queryset.filter(current_class=class_filter)
         
         return queryset
+
+
+class PublicStudentProfileView(generics.RetrieveAPIView):
+    """
+    Public profile view for students (safe, non-sensitive)
+    """
+    queryset = Student.objects.all()
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, student_id, *args, **kwargs):
+        try:
+            student = Student.objects.get(student_id=student_id)
+        except Student.DoesNotExist:
+            return Response({'detail': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = student.get_qr_code_data()
+        # Do not include any sensitive user fields like email/password
+        safe_user = {
+            'first_name': student.user.first_name,
+            'last_name': student.user.last_name,
+            'profile_picture': student.user.profile_picture.url if student.user.profile_picture else None,
+        }
+        data['user'] = safe_user
+        return Response(data)

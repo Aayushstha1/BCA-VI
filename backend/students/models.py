@@ -101,9 +101,16 @@ class Student(models.Model):
             border=4,
         )
         
-        # Convert dict to string for QR code
-        qr_string = "|".join([f"{k}:{v}" for k, v in qr_data.items()])
-        qr.add_data(qr_string)
+        # Encode profile URL (prefer linking to frontend profile page)
+        try:
+            from django.conf import settings
+            profile_url = f"{getattr(settings, 'FRONTEND_URL', '').rstrip('/')}" + f"/public/student/{self.student_id}"
+            qr_payload = profile_url
+        except Exception:
+            # fallback to original data string
+            qr_payload = "|".join([f"{k}:{v}" for k, v in qr_data.items()])
+
+        qr.add_data(qr_payload)
         qr.make(fit=True)
         
         # Create image

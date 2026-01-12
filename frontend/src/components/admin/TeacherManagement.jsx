@@ -29,6 +29,7 @@ import {
 import {
   Person as PersonIcon,
   Add as AddIcon,
+  QrCode as QRCodeIcon,
   Search as SearchIcon,
   Edit as EditIcon,
   Delete as DeleteIcon
@@ -39,8 +40,10 @@ import axios from 'axios';
 const TeacherManagement = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openQRDialog, setOpenQRDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState(null);
+  const [qrData, setQrData] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     username: '',
@@ -349,6 +352,21 @@ const TeacherManagement = () => {
                       />
                     </TableCell>
                     <TableCell>
+                      <Tooltip title="View QR Code">
+                        <IconButton size="small" onClick={async () => {
+                          setSelectedTeacher(teacher);
+                          setError('');
+                          try {
+                            const resp = await axios.get(`/teachers/${teacher.id}/qr-code/`);
+                            setQrData(resp.data);
+                          } catch (e) {
+                            setQrData(null);
+                          }
+                          setOpenQRDialog(true);
+                        }}>
+                          <QRCodeIcon />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Edit">
                         <IconButton size="small" onClick={() => {
                           setSelectedTeacher(teacher);
@@ -668,6 +686,60 @@ const TeacherManagement = () => {
             <Button type="submit" variant="contained" disabled={loading}>{loading ? <CircularProgress size={24} /> : 'Save Changes'}</Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* QR Modal */}
+      <Dialog open={openQRDialog} onClose={() => { setOpenQRDialog(false); setQrData(null); }} maxWidth="sm" fullWidth>
+        <DialogTitle>Teacher QR Code</DialogTitle>
+        <DialogContent>
+          {selectedTeacher && (
+            <Box>
+              <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                {selectedTeacher.user_details?.first_name} {selectedTeacher.user_details?.last_name}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 3, alignItems: 'center', mb: 2 }}>
+                {(qrData?.qr_code_url || selectedTeacher?.qr_code) ? (
+                  <img
+                    alt="QR Code"
+                    style={{ width: 160, height: 160 }}
+                    src={qrData?.qr_code_url || (selectedTeacher.qr_code ? `${axios.defaults.baseURL.replace('/api','')}${selectedTeacher.qr_code}` : '')}
+                  />
+                ) : (
+                  <Typography color="text.secondary">No QR image available</Typography>
+                )}
+                <Box>
+                  <Typography variant="body2">Employee ID: {selectedTeacher.employee_id}</Typography>
+                  <Typography variant="body2">Department: {selectedTeacher.department}</Typography>
+                  <Typography variant="body2">Designation: {selectedTeacher.designation}</Typography>
+                </Box>
+              </Box>
+              {/* Display domain-specific info */}
+              {qrData && (
+                <Box sx={{ mt: 1 }}>
+                  {Array.isArray(qrData.borrowed_books) && qrData.borrowed_books.length > 0 ? (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle2">Borrowed Books</Typography>
+                      {qrData.borrowed_books.map((b, i) => (
+                        <Typography key={i} variant="body2">{b.title} — Issued: {b.issued_date || 'N/A'} — Status: {b.status}</Typography>
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">No borrowed books.</Typography>
+                  )}
+
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="subtitle2">Attendance</Typography>
+                    <Typography variant="body2">Sessions Created: {qrData.attendance_sessions_count ?? 0}</Typography>
+                    <Typography variant="body2">Attendance Marked: {qrData.marked_attendances_count ?? 0}</Typography>
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setOpenQRDialog(false); setQrData(null); }}>Close</Button>
+        </DialogActions>
       </Dialog>
 
       {/* Delete Confirm Dialog */}

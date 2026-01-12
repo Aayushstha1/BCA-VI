@@ -160,5 +160,8 @@ CORS_ALLOW_CREDENTIALS = True
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Frontend URL used for QR profiles (update for production)
+FRONTEND_URL = 'http://localhost:5173'
+
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'

@@ -6,6 +6,8 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './contexts/AuthContext';
 import Login from './components/Login';
 import AdminDashboard from './components/admin/Dashboard';
+import PublicStudentProfile from './components/PublicStudentProfile';
+import PublicTeacherProfile from './components/PublicTeacherProfile';
 import StudentDashboard from './components/student/StudentDashboard';
 import TeacherDashboard from './components/teacher/TeacherDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -41,8 +43,9 @@ function App() {
                     <AdminDashboard />
                   </ProtectedRoute>
                 } 
-              />
-              <Route 
+              />              {/* Public profiles accessible via scanned QR links */}
+              <Route path="/public/student/:studentId" element={<PublicStudentProfile />} />
+              <Route path="/public/teacher/:employeeId" element={<PublicTeacherProfile />} />              <Route 
                 path="/student/*" 
                 element={
                   <ProtectedRoute allowedRoles={['student']}>
