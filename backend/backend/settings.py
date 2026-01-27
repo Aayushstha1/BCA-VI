@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'results',
     'notices',
     'notes',
+    'tasks',
 ]
 
 MIDDLEWARE = [

@@ -34,6 +34,7 @@ import {
   Menu as MenuIcon,
   AccountCircle as AccountIcon,
   Logout as LogoutIcon,
+  Assignment as TasksIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../../contexts/AuthContext";
 import Home from "./Home";
@@ -46,6 +47,7 @@ import LibraryManagement from "./LibraryManagement";
 import ResultsManagement from "./ResultsManagement";
 import NoticesManagement from "./NoticesManagement";
 import NotesManagement from "./NotesManagement";
+import Tasks from "./Tasks";
 
 const drawerWidth = 240;
 
@@ -62,6 +64,7 @@ const Dashboard = () => {
     { text: "User Management", icon: <PeopleIcon />, path: "/admin/users" },
     { text: "Students", icon: <SchoolIcon />, path: "/admin/students" },
     { text: "Teachers", icon: <PersonIcon />, path: "/admin/teachers" },
+    { text: "Tasks", icon: <TasksIcon />, path: "/admin/tasks" },
     { text: "Attendance", icon: <AssessmentIcon />, path: "/admin/attendance" },
     { text: "Hostel", icon: <HomeIcon />, path: "/admin/hostel" },
     { text: "Library", icon: <LibraryIcon />, path: "/admin/library" },
@@ -263,6 +266,7 @@ const Dashboard = () => {
           <Route path="/users" element={<UserManagement />} />
           <Route path="/students" element={<StudentManagement />} />
           <Route path="/teachers" element={<TeacherManagement />} />
+          <Route path="/tasks" element={<Tasks />} />
           <Route path="/attendance" element={<AttendanceManagement />} />
           <Route path="/hostel" element={<HostelManagement />} />
           <Route path="/library" element={<LibraryManagement />} />

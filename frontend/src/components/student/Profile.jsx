@@ -28,6 +28,7 @@ import axios from 'axios';
 const Profile = () => {
   const { user } = useAuth();
   const [student, setStudent] = useState(null);
+  const [taskScores, setTaskScores] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -68,6 +69,18 @@ const Profile = () => {
         guardian_contact: response.data.guardian_contact,
       });
       setError('');
+
+      // Fetch task scores
+      try {
+        const scoresResponse = await axios.get(
+          `${API_BASE_URL}/tasks/student/${response.data.id}/scores/`,
+          { headers: { Authorization: `Token ${token}` } }
+        );
+        setTaskScores(scoresResponse.data);
+      } catch (scoreErr) {
+        // Task scores endpoint might not be available, continue without them
+        console.log('Could not fetch task scores');
+      }
     } catch (err) {
       const errorMsg = err.response?.data?.detail || err.response?.data?.error || err.message;
       if (err.response?.status === 401) {
@@ -438,6 +451,68 @@ const Profile = () => {
             </Card>
           </Box>
         </Box>
+
+        <Divider sx={{ my: 3 }} />
+
+        {/* Task Scores */}
+        {taskScores && (
+          <>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+              Task Performance
+            </Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 3 }}>
+              <Box>
+                <Card sx={{ bgcolor: 'background.default' }}>
+                  <CardContent>
+                    <Typography color="textSecondary" gutterBottom>
+                      Total Tasks
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                      {taskScores.total_tasks}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Box>
+              <Box>
+                <Card sx={{ bgcolor: 'background.default' }}>
+                  <CardContent>
+                    <Typography color="textSecondary" gutterBottom>
+                      Completed Tasks
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                      {taskScores.completed_tasks}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Box>
+              <Box>
+                <Card sx={{ bgcolor: 'background.default' }}>
+                  <CardContent>
+                    <Typography color="textSecondary" gutterBottom>
+                      Total Score
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                      {taskScores.total_score}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Box>
+              <Box>
+                <Card sx={{ bgcolor: 'background.default' }}>
+                  <CardContent>
+                    <Typography color="textSecondary" gutterBottom>
+                      Average Score
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                      {taskScores.average_score.toFixed(2)}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Box>
+            </Box>
+            <Divider sx={{ my: 3 }} />
+          </>
+        )}
       </Paper>
 
       {/* Upload Profile Picture Dialog */}

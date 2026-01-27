@@ -131,7 +131,7 @@ const AttendanceManagement = () => {
     setOpenDialog(true);
     setError('');
   };
-
+ 
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setError('');
