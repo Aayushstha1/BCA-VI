@@ -57,6 +57,9 @@ class Student(models.Model):
     # QR Code
     qr_code = models.ImageField(upload_to='qr_codes/', blank=True, null=True)
     
+    # Profile Picture
+    profile_picture = models.ImageField(upload_to='student_profiles/', blank=True, null=True)
+    
     # System fields
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

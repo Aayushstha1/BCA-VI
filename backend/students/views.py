@@ -1,9 +1,13 @@
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 from .models import Student
-from .serializers import StudentSerializer, StudentCreateSerializer, StudentSearchSerializer
+from .serializers import (
+    StudentSerializer, StudentCreateSerializer, StudentSearchSerializer,
+    StudentProfileSerializer, StudentProfileUpdateSerializer
+)
 import logging
 
 
@@ -164,3 +168,102 @@ class PublicStudentProfileView(generics.RetrieveAPIView):
         }
         data['user'] = safe_user
         return Response(data)
+
+
+class StudentProfileView(generics.RetrieveUpdateAPIView):
+    """
+    View for student to view and edit their profile
+    """
+    serializer_class = StudentProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
+    
+    def get_object(self):
+        # Students can only access their own profile
+        if self.request.user.role == 'student':
+            try:
+                return Student.objects.get(user=self.request.user)
+            except Student.DoesNotExist:
+                return None
+        # Admin can access any student profile
+        elif self.request.user.role == 'admin':
+            student_id = self.kwargs.get('pk')
+            try:
+                return Student.objects.get(pk=student_id)
+            except Student.DoesNotExist:
+                return None
+        return None
+    
+    def get(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if not obj:
+            return Response({'detail': 'Student profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = self.get_serializer(obj)
+        return Response(serializer.data)
+    
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return StudentProfileUpdateSerializer
+        return StudentProfileSerializer
+    
+    def put(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if not obj:
+            return Response({'detail': 'Student profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = StudentProfileUpdateSerializer(obj, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            # Return the updated profile with full details
+            profile_serializer = StudentProfileSerializer(obj, context={'request': request})
+            return Response(profile_serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def patch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if not obj:
+            return Response({'detail': 'Student profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = StudentProfileUpdateSerializer(obj, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            # Return the updated profile with full details
+            profile_serializer = StudentProfileSerializer(obj, context={'request': request})
+            return Response(profile_serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StudentProfilePictureUploadView(generics.UpdateAPIView):
+    """
+    View for uploading student profile picture (by admin or student)
+    """
+    queryset = Student.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
+    
+    def put(self, request, *args, **kwargs):
+        """Allow profile picture upload"""
+        student_id = kwargs.get('pk')
+        
+        try:
+            student = Student.objects.get(pk=student_id)
+        except Student.DoesNotExist:
+            return Response({'detail': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Check permissions: student can upload their own, admin can upload anyone's
+        if request.user.role == 'student' and student.user != request.user:
+            return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Check if profile_picture is in the request
+        if 'profile_picture' not in request.FILES:
+            return Response(
+                {'detail': 'No profile_picture file provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        profile_picture = request.FILES['profile_picture']
+        student.profile_picture = profile_picture
+        student.save()
+        
+        serializer = StudentProfileSerializer(student, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)

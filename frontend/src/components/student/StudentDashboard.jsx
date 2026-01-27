@@ -43,6 +43,7 @@ import Results from './Results';
 import Notes from './Notes';
 import Finance from './Finance';
 import Notices from './Notices';
+import Profile from './Profile';
 import { Wallet } from '@mui/icons-material';
 
 const drawerWidth = 220;
@@ -57,6 +58,7 @@ const StudentDashboard = () => {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/student' },
+    { text: 'Profile', icon: <AccountIcon />, path: '/student/profile' },
     { text: 'Report Card', icon: <ReportIcon />, path: '/student/report-card' },
     { text: 'Admission', icon: <AdmissionIcon />, path: '/student/admission' },
     { text: 'Notices', icon: <NoticesIcon />, path: '/student/notices' },
@@ -211,6 +213,7 @@ const StudentDashboard = () => {
         <Toolbar />
         <Routes>
           <Route path="/" element={<StudentHome />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/report-card" element={<ReportCard />} />
           <Route path="/admission" element={<AdmissionRecords />} />
           <Route path="/notices" element={<Notices />} />

@@ -12,6 +12,7 @@ class StudentSerializer(serializers.ModelSerializer):
     qr_code_data = serializers.SerializerMethodField()
     qr_code = serializers.SerializerMethodField()
     qr_code_url = serializers.SerializerMethodField()
+    profile_picture_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Student
@@ -21,6 +22,7 @@ class StudentSerializer(serializers.ModelSerializer):
             'user', 'user_details', 'date_of_birth', 'gender', 'blood_group',
             'father_name', 'mother_name', 'guardian_contact',
             'current_class', 'current_section', 'roll_number', 'qr_code', 'qr_code_url', 'qr_code_data',
+            'profile_picture', 'profile_picture_url',
             'is_active', 'created_at', 'updated_at'
         ]
         read_only_fields = ['student_id', 'admission_number', 'qr_code', 'created_at', 'updated_at']
@@ -89,6 +91,19 @@ class StudentSerializer(serializers.ModelSerializer):
         except Exception:
             return None
 
+    def get_profile_picture_url(self, obj):
+        # Return profile picture URL if it exists
+        try:
+            if obj.profile_picture:
+                url = obj.profile_picture.url
+                request = self.context.get('request') if hasattr(self, 'context') else None
+                if request:
+                    return request.build_absolute_uri(url)
+                return url
+            return None
+        except Exception:
+            return None
+
 
 from django.db import IntegrityError, transaction
 
@@ -154,3 +169,55 @@ class StudentSearchSerializer(serializers.Serializer):
     """
     query = serializers.CharField(max_length=100)
     class_filter = serializers.CharField(max_length=20, required=False)
+
+
+class StudentProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for student profile view and edit (excludes sensitive fields)
+    """
+    user_id = serializers.IntegerField(read_only=True, source='user.id')
+    username = serializers.CharField(read_only=True, source='user.username')
+    email = serializers.CharField(source='user.email', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    phone = serializers.CharField(source='user.phone', read_only=True)
+    profile_picture_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Student
+        fields = [
+            'id', 'student_id', 'admission_number', 'admission_date',
+            'user_id', 'username', 'email', 'first_name', 'last_name', 'phone',
+            'date_of_birth', 'gender', 'blood_group',
+            'father_name', 'mother_name', 'guardian_contact',
+            'current_class', 'current_section', 'roll_number',
+            'profile_picture', 'profile_picture_url',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['student_id', 'admission_number', 'created_at', 'updated_at']
+    
+    def get_profile_picture_url(self, obj):
+        try:
+            if obj.profile_picture:
+                url = obj.profile_picture.url
+                request = self.context.get('request') if hasattr(self, 'context') else None
+                if request:
+                    return request.build_absolute_uri(url)
+                return url
+            return None
+        except Exception:
+            return None
+
+
+class StudentProfileUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for updating student profile (allows profile picture upload)
+    """
+    class Meta:
+        model = Student
+        fields = [
+            'date_of_birth', 'gender', 'blood_group',
+            'father_name', 'mother_name', 'guardian_contact',
+            'profile_picture'
+        ]
+

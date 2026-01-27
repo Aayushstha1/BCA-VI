@@ -19,7 +19,11 @@ import {
   TableHead,
   TableRow,
   IconButton,
-  Tooltip
+  Tooltip,
+  Avatar,
+  Card,
+  CardContent,
+  Divider
 } from '@mui/material';
 import {
   School as SchoolIcon,
@@ -27,7 +31,9 @@ import {
   QrCode as QRCodeIcon,
   Search as SearchIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  PhotoCamera as CameraIcon,
+  Visibility as ViewIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -40,7 +46,11 @@ const StudentManagement = () => {
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openQRDialog, setOpenQRDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [openProfileDialog, setOpenProfileDialog] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentProfile, setStudentProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [selectedProfileFile, setSelectedProfileFile] = useState(null);
   const [qrData, setQrData] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
@@ -330,6 +340,25 @@ const StudentManagement = () => {
                       />
                     </TableCell>
                     <TableCell>
+                      <Tooltip title="View Profile">
+                        <IconButton size="small" onClick={async () => {
+                          setSelectedStudent(student);
+                          setProfileLoading(true);
+                          setSelectedProfileFile(null);
+                          setError('');
+                          try {
+                            const resp = await axios.get(`/students/${student.id}/profile/`);
+                            setStudentProfile(resp.data);
+                          } catch (e) {
+                            setError('Failed to load student profile');
+                            setStudentProfile(null);
+                          }
+                          setProfileLoading(false);
+                          setOpenProfileDialog(true);
+                        }}>
+                          <ViewIcon />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="View QR Code">
                       <IconButton size="small" onClick={async () => {
                         setSelectedStudent(student);
@@ -743,6 +772,221 @@ const StudentManagement = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setOpenQRDialog(false); setQrData(null); }}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Student Profile Dialog */}
+      <Dialog open={openProfileDialog} onClose={() => setOpenProfileDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Student Profile</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {profileLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : studentProfile ? (
+            <Box>
+              {/* Profile Picture Section */}
+              <Box sx={{ textAlign: 'center', mb: 3 }}>
+                <Avatar
+                  src={studentProfile.profile_picture_url}
+                  sx={{
+                    width: 120,
+                    height: 120,
+                    mx: 'auto',
+                    mb: 2,
+                    fontSize: '3rem',
+                    bgcolor: 'primary.main',
+                  }}
+                >
+                  {studentProfile.first_name?.[0]}
+                  {studentProfile.last_name?.[0]}
+                </Avatar>
+                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                  {studentProfile.first_name} {studentProfile.last_name}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  {studentProfile.username}
+                </Typography>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Profile Picture Upload */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  Upload Profile Picture
+                </Typography>
+                <input
+                  type="file"
+                  id="profile-pic-input"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (!file.type.startsWith('image/')) {
+                        setError('Please select an image file');
+                        return;
+                      }
+                      if (file.size > 5 * 1024 * 1024) {
+                        setError('File size must be less than 5MB');
+                        return;
+                      }
+                      setSelectedProfileFile(file);
+                      setError('');
+                    }
+                  }}
+                  style={{ display: 'none' }}
+                />
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    htmlFor="profile-pic-input"
+                    startIcon={<CameraIcon />}
+                    size="small"
+                  >
+                    Select Image
+                  </Button>
+                  {selectedProfileFile && (
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={async () => {
+                        try {
+                          const formData = new FormData();
+                          formData.append('profile_picture', selectedProfileFile);
+                          const token = localStorage.getItem('access_token');
+                          const resp = await axios.put(
+                            `/students/${selectedStudent.id}/profile-picture/`,
+                            formData,
+                            {
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': 'multipart/form-data',
+                              },
+                            }
+                          );
+                          setStudentProfile(resp.data);
+                          setSelectedProfileFile(null);
+                          setError('');
+                        } catch (err) {
+                          setError('Failed to upload profile picture');
+                        }
+                      }}
+                    >
+                      Upload
+                    </Button>
+                  )}
+                </Box>
+                {selectedProfileFile && (
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+                    Selected: {selectedProfileFile.name}
+                  </Typography>
+                )}
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Basic Information */}
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  Basic Information
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Student ID</Typography>
+                    <Typography variant="body2">{studentProfile.student_id}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Admission No.</Typography>
+                    <Typography variant="body2">{studentProfile.admission_number}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Email</Typography>
+                    <Typography variant="body2">{studentProfile.email}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Phone</Typography>
+                    <Typography variant="body2">{studentProfile.phone || 'N/A'}</Typography>
+                  </Box>
+                </Box>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Personal Information */}
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  Personal Information
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">DOB</Typography>
+                    <Typography variant="body2">
+                      {studentProfile.date_of_birth ? new Date(studentProfile.date_of_birth).toLocaleDateString() : 'N/A'}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Gender</Typography>
+                    <Typography variant="body2">
+                      {studentProfile.gender === 'M' ? 'Male' : studentProfile.gender === 'F' ? 'Female' : 'Other'}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Blood Group</Typography>
+                    <Typography variant="body2">{studentProfile.blood_group || 'N/A'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Father's Name</Typography>
+                    <Typography variant="body2">{studentProfile.father_name}</Typography>
+                  </Box>
+                  <Box sx={{ gridColumn: '1/-1' }}>
+                    <Typography variant="caption" color="textSecondary">Mother's Name</Typography>
+                    <Typography variant="body2">{studentProfile.mother_name}</Typography>
+                  </Box>
+                  <Box sx={{ gridColumn: '1/-1' }}>
+                    <Typography variant="caption" color="textSecondary">Guardian Contact</Typography>
+                    <Typography variant="body2">{studentProfile.guardian_contact}</Typography>
+                  </Box>
+                </Box>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Academic Information */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  Academic Information
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Class</Typography>
+                    <Typography variant="body2">{studentProfile.current_class}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Section</Typography>
+                    <Typography variant="body2">{studentProfile.current_section}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Roll Number</Typography>
+                    <Typography variant="body2">{studentProfile.roll_number}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">Admission Date</Typography>
+                    <Typography variant="body2">
+                      {studentProfile.admission_date ? new Date(studentProfile.admission_date).toLocaleDateString() : 'N/A'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
+          ) : (
+            <Typography color="textSecondary">No profile data available</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenProfileDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>
