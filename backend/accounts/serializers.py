@@ -7,10 +7,12 @@ class UserSerializer(serializers.ModelSerializer):
     """
     Serializer for User model
     """
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    
     class Meta:
         model = User
         # Explicitly exclude the password field to ensure it is never returned
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone', 'address', 'profile_picture', 'is_active', 'date_joined']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone', 'address', 'profile_picture', 'is_active', 'date_joined', 'password']
         read_only_fields = ['id', 'date_joined']
 
     def to_representation(self, instance):
@@ -18,6 +20,19 @@ class UserSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data.pop('password', None)
         return data
+    
+    def update(self, instance, validated_data):
+        # Handle password update
+        password = validated_data.pop('password', None)
+        if password:
+            instance.set_password(password)
+        
+        # Update other fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        instance.save()
+        return instance
 
 
 class UserCreateSerializer(serializers.ModelSerializer):

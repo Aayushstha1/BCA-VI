@@ -380,6 +380,9 @@ const StudentManagement = () => {
                         // Pre-fill form with student fields for editing
                         setFormData({
                           ...formData,
+                          username: student.user_details?.username || '',
+                          password: '',
+                          password_confirm: '',
                           admission_date: student.admission_date || '',
                           date_of_birth: student.date_of_birth || '',
                           gender: student.gender || '',
@@ -650,6 +653,15 @@ const StudentManagement = () => {
             current_section: formData.current_section,
             roll_number: formData.roll_number,
           };
+          
+          // Include username and password if provided
+          if (formData.username) {
+            updates.username = formData.username;
+          }
+          if (formData.password) {
+            updates.password = formData.password;
+          }
+          
           updateStudentMutation.mutate({ id: selectedStudent.id, updates });
           setLoading(false);
         }}>
@@ -660,6 +672,53 @@ const StudentManagement = () => {
               </Alert>
             )}
             <Grid container spacing={2}>
+              {/* User Credentials Section */}
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                  User Credentials
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  helperText="Leave blank to keep current username"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="New Password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  helperText="Leave blank to keep current password"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Confirm Password"
+                  name="password_confirm"
+                  type="password"
+                  value={formData.password_confirm}
+                  onChange={handleInputChange}
+                  helperText="Leave blank to keep current password"
+                />
+              </Grid>
+              
+              {/* Academic Information Section */}
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mt: 2, mb: 1 }}>
+                  Academic Information
+                </Typography>
+              </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField fullWidth label="Admission Date" name="admission_date" type="date" value={formData.admission_date} onChange={handleInputChange} InputLabelProps={{ shrink: true }} required />
               </Grid>

@@ -39,6 +39,8 @@ class UserListCreateView(generics.ListCreateAPIView):
 class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     View for retrieving, updating, and deleting a user
+    Admin can update username and password for any user
+    Users can only update their own profile (non-sensitive fields)
     """
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -49,6 +51,14 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.user.role == 'admin':
             return User.objects.all()
         return User.objects.filter(id=self.request.user.id)
+    
+    def perform_update(self, serializer):
+        # Only allow admins to change username and password
+        if self.request.user.role != 'admin':
+            if 'username' in self.request.data or 'password' in self.request.data:
+                raise permissions.PermissionDenied('You cannot change username or password')
+        
+        serializer.save()
 
 
 @csrf_exempt

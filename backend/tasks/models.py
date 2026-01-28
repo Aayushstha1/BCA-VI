@@ -48,7 +48,7 @@ class TaskSubmission(models.Model):
     submission_file = models.FileField(upload_to='task_submissions/%Y/%m/%d/')
     submitted_at = models.DateTimeField(null=True, blank=True)
     score = models.IntegerField(null=True, blank=True)
-    feedback = models.TextField(null=True, blank=True)
+    feedback = models.TextField(null=True, blank=True, help_text="Teacher feedback on submission")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='not_submitted')
     is_late = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

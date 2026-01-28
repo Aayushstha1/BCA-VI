@@ -372,7 +372,9 @@ const TeacherManagement = () => {
                           setSelectedTeacher(teacher);
                           setFormData({
                             ...formData,
-                            // user fields are not editable here; only teacher profile fields
+                            username: teacher.user_details?.username || '',
+                            password: '',
+                            password_confirm: '',
                             phone: teacher.user_details?.phone || '',
                             joining_date: teacher.joining_date || '',
                             qualification: teacher.qualification || '',
@@ -635,6 +637,15 @@ const TeacherManagement = () => {
             emergency_contact: formData.emergency_contact,
             emergency_contact_name: formData.emergency_contact_name,
           };
+          
+          // Include username and password if provided
+          if (formData.username) {
+            updates.username = formData.username;
+          }
+          if (formData.password) {
+            updates.password = formData.password;
+          }
+          
           updateTeacherMutation.mutate({ id: selectedTeacher.id, updates });
           setLoading(false);
         }}>
@@ -645,6 +656,53 @@ const TeacherManagement = () => {
               </Alert>
             )}
             <Grid container spacing={2}>
+              {/* User Credentials Section */}
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                  User Credentials
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  helperText="Leave blank to keep current username"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="New Password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  helperText="Leave blank to keep current password"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Confirm Password"
+                  name="password_confirm"
+                  type="password"
+                  value={formData.password_confirm}
+                  onChange={handleInputChange}
+                  helperText="Leave blank to keep current password"
+                />
+              </Grid>
+              
+              {/* Teacher Information Section */}
+              <Grid item xs={12}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mt: 2, mb: 1 }}>
+                  Teacher Information
+                </Typography>
+              </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField fullWidth label="Joining Date" name="joining_date" type="date" value={formData.joining_date} onChange={handleInputChange} InputLabelProps={{ shrink: true }} required />
               </Grid>

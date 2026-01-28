@@ -45,7 +45,7 @@ const AdminTasks = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [tabValue, setTabValue] = useState('0');
+  const [tabValue, setTabValue] = useState(0);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -82,7 +82,9 @@ const AdminTasks = () => {
         headers: { Authorization: `Token ${token}` },
       });
 
-      setTasks(response.data);
+      // Handle both array and paginated response formats
+      const tasksData = Array.isArray(response.data) ? response.data : (response.data.results || []);
+      setTasks(tasksData);
     } catch (err) {
       setError('Failed to load tasks: ' + (err.response?.data?.detail || err.message));
     } finally {
@@ -155,7 +157,7 @@ const AdminTasks = () => {
 
       setSelectedTask(task);
       setSubmissions(response.data);
-      setTabValue('1');
+      setTabValue(1);
     } catch (err) {
       setError('Failed to load submissions: ' + (err.response?.data?.detail || err.message));
     }
@@ -219,7 +221,7 @@ const AdminTasks = () => {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={parseInt(tabValue)} onChange={(e, v) => setTabValue(v.toString())}>
+        <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)}>
           <Tab label="My Tasks" />
           <Tab label="Submissions & Grading" />
         </Tabs>
@@ -237,7 +239,7 @@ const AdminTasks = () => {
         </Alert>
       )}
 
-      {tabValue === '0' && (
+      {tabValue === 0 && (
         <>
           <Box sx={{ mb: 3 }}>
             <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
@@ -259,8 +261,8 @@ const AdminTasks = () => {
             </Paper>
           ) : (
             <Grid container spacing={2}>
-            {tasks.map((task) => (
-              <Grid item xs={12} key={task.id}>
+            {Array.isArray(tasks) && tasks.map((task) => (
+              <Grid size={{ xs: 12 }} key={task.id}>
                   <Card>
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -309,14 +311,14 @@ const AdminTasks = () => {
                       </Box>
                     </CardContent>
                   </Card>
-              </Grid>
+            </Grid>
             ))}
           </Grid>
         )}
         </>
       )}
 
-      {tabValue === '1' && (
+      {tabValue === 1 && (
         <>
           {selectedTask ? (
             <>

@@ -19,13 +19,15 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
 const UserManagement = () => {
   const [tabValue, setTabValue] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -36,6 +38,11 @@ const UserManagement = () => {
     role: 'student',
     phone: '',
     address: ''
+  });
+  const [editFormData, setEditFormData] = useState({
+    username: '',
+    password: '',
+    password_confirm: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -75,6 +82,27 @@ const UserManagement = () => {
     }
   });
 
+  const updateUserMutation = useMutation({
+    mutationFn: async (userData) => {
+      const { userId, ...data } = userData;
+      const response = await axios.patch(`/accounts/users/${userId}/`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['users']);
+      setOpenEditDialog(false);
+      setSelectedUser(null);
+      setEditFormData({
+        username: '',
+        password: '',
+        password_confirm: ''
+      });
+    },
+    onError: (error) => {
+      setError(error.response?.data?.detail || error.response?.data?.message || 'Failed to update user');
+    }
+  });
+
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
@@ -100,9 +128,39 @@ const UserManagement = () => {
     });
   };
 
+  const handleOpenEditDialog = (user) => {
+    setSelectedUser(user);
+    setEditFormData({
+      username: user.username,
+      password: '',
+      password_confirm: ''
+    });
+    setOpenEditDialog(true);
+    setError('');
+  };
+
+  const handleCloseEditDialog = () => {
+    setOpenEditDialog(false);
+    setSelectedUser(null);
+    setEditFormData({
+      username: '',
+      password: '',
+      password_confirm: ''
+    });
+    setError('');
+  };
+
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
+      [e.target.name]: e.target.value
+    });
+    setError('');
+  };
+
+  const handleEditInputChange = (e) => {
+    setEditFormData({
+      ...editFormData,
       [e.target.name]: e.target.value
     });
     setError('');
@@ -112,6 +170,29 @@ const UserManagement = () => {
     e.preventDefault();
     setLoading(true);
     createUserMutation.mutate(formData);
+    setLoading(false);
+  };
+
+  const handleEditSubmit = (e) => {
+    e.preventDefault();
+    
+    if (editFormData.password && editFormData.password !== editFormData.password_confirm) {
+      setError("Passwords don't match");
+      return;
+    }
+
+    setLoading(true);
+    
+    const updateData = {
+      userId: selectedUser.id,
+      username: editFormData.username
+    };
+    
+    if (editFormData.password) {
+      updateData.password = editFormData.password;
+    }
+
+    updateUserMutation.mutate(updateData);
     setLoading(false);
   };
 
@@ -196,7 +277,15 @@ const UserManagement = () => {
                     Phone: {user.phone || 'Not provided'} | Role: {user.role}
                   </Typography>
                 </Box>
-                <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<EditIcon />}
+                    onClick={() => handleOpenEditDialog(user)}
+                  >
+                    Edit
+                  </Button>
                   <Typography
                     variant="caption"
                     sx={{
@@ -335,6 +424,70 @@ const UserManagement = () => {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={openEditDialog} onClose={handleCloseEditDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit User Credentials</DialogTitle>
+        <DialogContent dividers sx={{ py: 3 }}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          
+          {selectedUser && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="body2" color="textSecondary">
+                Editing: <strong>{selectedUser.first_name} {selectedUser.last_name}</strong>
+              </Typography>
+              
+              <TextField
+                fullWidth
+                label="Username"
+                name="username"
+                value={editFormData.username}
+                onChange={handleEditInputChange}
+                variant="outlined"
+              />
+              
+              <TextField
+                fullWidth
+                label="New Password"
+                placeholder="Leave blank to keep current password"
+                name="password"
+                type="password"
+                value={editFormData.password}
+                onChange={handleEditInputChange}
+                variant="outlined"
+              />
+              
+              <TextField
+                fullWidth
+                label="Confirm New Password"
+                placeholder="Leave blank to keep current password"
+                name="password_confirm"
+                type="password"
+                value={editFormData.password_confirm}
+                onChange={handleEditInputChange}
+                variant="outlined"
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseEditDialog} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleEditSubmit}
+            variant="contained"
+            color="primary"
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={20} /> : 'Update'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
