@@ -11,5 +11,6 @@ urlpatterns = [
     path('<int:pk>/profile/', views.StudentProfileView.as_view(), name='student-admin-profile'),
     path('<int:pk>/profile-picture/', views.StudentProfilePictureUploadView.as_view(), name='student-profile-picture'),
     path('<int:pk>/qr-code/', views.StudentQRCodeView.as_view(), name='student-qr-code'),
+    path('<int:pk>/reset-password/', views.reset_student_password, name='student-reset-password'),
     path('search/', views.StudentSearchView.as_view(), name='student-search'),
 ]

@@ -57,6 +57,7 @@ const StudentTasks = () => {
       let token = localStorage.getItem('access_token') || localStorage.getItem('token');
       if (!token) {
         setError('No authentication token found');
+        setLoading(false);
         return;
       }
 
@@ -64,17 +65,19 @@ const StudentTasks = () => {
         headers: { Authorization: `Token ${token}` },
       });
 
-      setTasks(response.data);
+      // Handle both array and paginated response formats
+      const tasksData = Array.isArray(response.data) ? response.data : (response.data.results || []);
+      setTasks(tasksData);
 
       // Fetch submissions for each task
       const submissionsData = {};
-      for (const task of response.data) {
+      for (const task of tasksData) {
         try {
           const submissionResponse = await axios.get(
             `${API_BASE_URL}/tasks/${task.id}/submissions/`,
             { headers: { Authorization: `Token ${token}` } }
           );
-          if (submissionResponse.data.length > 0) {
+          if (Array.isArray(submissionResponse.data) && submissionResponse.data.length > 0) {
             submissionsData[task.id] = submissionResponse.data[0];
           }
         } catch (err) {

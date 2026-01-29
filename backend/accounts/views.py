@@ -1,4 +1,5 @@
 from rest_framework import generics, status, permissions
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
@@ -56,7 +57,7 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
         # Only allow admins to change username and password
         if self.request.user.role != 'admin':
             if 'username' in self.request.data or 'password' in self.request.data:
-                raise permissions.PermissionDenied('You cannot change username or password')
+                raise PermissionDenied('You cannot change username or password')
         
         serializer.save()
 
@@ -103,8 +104,18 @@ def profile_view(request):
     """
     Get current user profile
     """
-    serializer = UserSerializer(request.user)
-    return Response(serializer.data)
+    data = UserSerializer(request.user).data
+    # If user is a teacher, include assigned class/section info for frontend
+    try:
+        if request.user.role == 'teacher' and hasattr(request.user, 'teacher_profile'):
+            teacher = request.user.teacher_profile
+            assigned = []
+            for cs in teacher.assigned_sections.all():
+                assigned.append({'class_name': cs.class_name, 'section': cs.section})
+            data['assigned_sections'] = assigned
+    except Exception:
+        pass
+    return Response(data)
 
 
 @api_view(['PUT'])

@@ -30,3 +30,12 @@ class NoticeReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = NoticeRead
         fields = '__all__'
+
+
+from .models import UserNotification
+
+class UserNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserNotification
+        fields = ['id', 'title', 'content', 'created_at', 'is_read', 'link']
+        read_only_fields = ['created_at']

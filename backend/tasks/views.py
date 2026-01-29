@@ -1,4 +1,6 @@
-from rest_framework import generics, status, permissions
+from rest_framework import generics, status
+from rest_framework import permissions as drf_permissions
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -18,32 +20,57 @@ class TaskListCreateView(generics.ListCreateAPIView):
     Create new task (teacher/admin only)
     """
     serializer_class = TaskSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [drf_permissions.IsAuthenticated]
     
     def get_queryset(self):
         user = self.request.user
         
         if user.role == 'student':
-            # Students see tasks assigned to them or their class
+            # Students see tasks assigned to them, their class, or their class+section
             try:
                 student = Student.objects.get(user=user)
                 return Task.objects.filter(
                     Q(assigned_to_students=student) |
-                    Q(assigned_to_class=student.current_class)
+                    (Q(assigned_to_class=student.current_class) & (Q(assigned_to_section__isnull=True) | Q(assigned_to_section='') | Q(assigned_to_section=student.current_section)))
                 ).distinct()
             except Student.DoesNotExist:
                 return Task.objects.none()
         
-        elif user.role in ['teacher', 'admin']:
-            # Teachers/admins see tasks they created
+        elif user.role == 'teacher':
+            # Teachers see tasks they created
             return Task.objects.filter(assigned_by=user).order_by('-due_date')
+        elif user.role == 'admin':
+            # Admins see all tasks across teachers
+            return Task.objects.all().order_by('-due_date')
         
         return Task.objects.none()
     
     def perform_create(self, serializer):
         # Only teacher and admin can create tasks
         if self.request.user.role not in ['teacher', 'admin']:
-            raise permissions.PermissionDenied('Only teachers and admins can create tasks')
+            raise PermissionDenied('Only teachers and admins can create tasks')
+
+        # If teacher, ensure they are assigning only to their permitted class/section
+        if self.request.user.role == 'teacher':
+            teacher = getattr(self.request.user, 'teacher_profile', None)
+            if teacher is None:
+                raise PermissionDenied('Teacher profile not found')
+
+            assigned_to_class = serializer.validated_data.get('assigned_to_class')
+            assigned_to_section = serializer.validated_data.get('assigned_to_section')
+
+            # If assigning to a class/section, check permissions
+            if assigned_to_class:
+                if assigned_to_section:
+                    # Allowed if teacher has either that specific section OR whole-class permission (empty section)
+                    allowed = teacher.assigned_sections.filter(class_name=assigned_to_class, section__in=[assigned_to_section, None, '']).exists()
+                else:
+                    # Only allow whole-class assignment if teacher explicitly has an entry with empty section
+                    allowed = teacher.assigned_sections.filter(class_name=assigned_to_class, section__in=[None, '']).exists()
+
+                if not allowed:
+                    raise PermissionDenied('You are not allowed to assign to this class/section')
+
         serializer.save(assigned_by=self.request.user)
 
 
@@ -52,7 +79,7 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
     Retrieve, update, or delete a specific task
     """
     serializer_class = TaskDetailSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [drf_permissions.IsAuthenticated]
     
     def get_queryset(self):
         user = self.request.user
@@ -62,7 +89,7 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
                 student = Student.objects.get(user=user)
                 return Task.objects.filter(
                     Q(assigned_to_students=student) |
-                    Q(assigned_to_class=student.current_class)
+                    (Q(assigned_to_class=student.current_class) & (Q(assigned_to_section__isnull=True) | Q(assigned_to_section='') | Q(assigned_to_section=student.current_section)))
                 ).distinct()
             except Student.DoesNotExist:
                 return Task.objects.none()
@@ -74,12 +101,12 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def perform_update(self, serializer):
         if serializer.instance.assigned_by != self.request.user:
-            raise permissions.PermissionDenied('You can only edit tasks you created')
+            raise PermissionDenied('You can only edit tasks you created')
         serializer.save()
     
     def perform_destroy(self, instance):
         if instance.assigned_by != self.request.user:
-            raise permissions.PermissionDenied('You can only delete tasks you created')
+            raise PermissionDenied('You can only delete tasks you created')
         instance.delete()
 
 
@@ -88,7 +115,7 @@ class TaskSubmissionListView(generics.ListAPIView):
     List submissions for a task (teacher/admin) or student's submissions
     """
     serializer_class = TaskSubmissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [drf_permissions.IsAuthenticated]
     
     def get_queryset(self):
         task_id = self.kwargs.get('task_id')
@@ -107,7 +134,7 @@ class TaskSubmissionListView(generics.ListAPIView):
         elif user.role in ['teacher', 'admin']:
             # Teachers/admins see all submissions for their tasks
             if task.assigned_by != user and user.role != 'admin':
-                raise permissions.PermissionDenied('You can only see submissions for your tasks')
+                raise PermissionDenied('You can only see submissions for your tasks')
             return TaskSubmission.objects.filter(task_id=task_id).order_by('-submitted_at')
         
         return TaskSubmission.objects.none()
@@ -118,7 +145,7 @@ class StudentTaskSubmitView(generics.CreateAPIView):
     Student submits a task
     """
     serializer_class = TaskSubmissionCreateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [drf_permissions.IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
     
     def create(self, request, *args, **kwargs):
@@ -136,7 +163,7 @@ class StudentTaskSubmitView(generics.CreateAPIView):
         
         # Check if student is assigned to this task
         is_assigned = task.assigned_to_students.filter(id=student.id).exists() or \
-                      task.assigned_to_class == student.current_class
+                      (task.assigned_to_class == student.current_class and (not task.assigned_to_section or task.assigned_to_section == student.current_section))
         
         if not is_assigned:
             return Response({'error': 'You are not assigned to this task'}, status=status.HTTP_403_FORBIDDEN)
@@ -162,7 +189,7 @@ class TaskSubmissionGradeView(generics.UpdateAPIView):
     Grade a student's task submission
     """
     serializer_class = TaskSubmissionGradeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [drf_permissions.IsAuthenticated]
     
     def get_queryset(self):
         return TaskSubmission.objects.all()
@@ -175,14 +202,43 @@ class TaskSubmissionGradeView(generics.UpdateAPIView):
         if self.request.user.role == 'admin' or submission.task.assigned_by == self.request.user:
             return submission
         
-        raise permissions.PermissionDenied('You cannot grade this submission')
+        raise PermissionDenied('You cannot grade this submission')
     
     def perform_update(self, serializer):
-        serializer.save(status='graded')
+        submission = serializer.save(status='graded')
+
+        # Create a user notification and send an email to the student
+        try:
+            from notices.models import UserNotification
+            from django.core.mail import send_mail
+            student_user = submission.student.user
+            title = f"Your submission for '{submission.task.title}' has been graded"
+            content = f"Your submission for the task '{submission.task.title}' was graded with score {submission.score}.\n\nFeedback: {submission.feedback or 'No feedback provided.'}"
+
+            # Create in-app notification
+            UserNotification.objects.create(
+                user=student_user,
+                title=title,
+                content=content,
+                link=f"/student/tasks"  # frontend link to student tasks; can be improved
+            )
+
+            # Send email (fail silently in case of email backend not configured)
+            if student_user.email:
+                send_mail(
+                    subject=title,
+                    message=content,
+                    from_email=None,
+                    recipient_list=[student_user.email],
+                    fail_silently=True,
+                )
+        except Exception:
+            # Don't let notification failures block grading
+            pass
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([drf_permissions.IsAuthenticated])
 def student_task_scores(request, student_id):
     """
     Get task score summary for a student
@@ -200,7 +256,7 @@ def student_task_scores(request, student_id):
     
     total_tasks = Task.objects.filter(
         Q(assigned_to_students=student) |
-        Q(assigned_to_class=student.current_class)
+        (Q(assigned_to_class=student.current_class) & (Q(assigned_to_section__isnull=True) | Q(assigned_to_section='') | Q(assigned_to_section=student.current_section)))
     ).distinct().count()
     
     completed = submissions.count()

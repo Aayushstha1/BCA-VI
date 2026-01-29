@@ -16,6 +16,7 @@ class Task(models.Model):
     description = models.TextField()
     assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='assigned_tasks')
     assigned_to_class = models.CharField(max_length=50, null=True, blank=True, help_text="Assign to entire class (e.g., 'BCA-I')")
+    assigned_to_section = models.CharField(max_length=10, null=True, blank=True, help_text="Optional section when assigning to a class (e.g., 'A')")
     assigned_to_students = models.ManyToManyField(Student, related_name='assigned_tasks', blank=True, help_text="Specific students to assign task")
     due_date = models.DateTimeField()
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')

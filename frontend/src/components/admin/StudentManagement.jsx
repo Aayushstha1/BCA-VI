@@ -37,6 +37,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Add missing import for Chip used in the table
 import { Chip } from '@mui/material';
@@ -52,6 +53,9 @@ const StudentManagement = () => {
   const [profileLoading, setProfileLoading] = useState(false);
   const [selectedProfileFile, setSelectedProfileFile] = useState(null);
   const [qrData, setQrData] = useState(null);
+  const [tempPasswordDialogOpen, setTempPasswordDialogOpen] = useState(false);
+  const [temporaryPassword, setTemporaryPassword] = useState('');
+  const [resettingPassword, setResettingPassword] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     username: '',
@@ -228,6 +232,28 @@ const StudentManagement = () => {
       current_section: '',
       roll_number: ''
     });
+  };
+
+  const { user } = useAuth();
+
+  const handleResetPassword = async () => {
+    if (!selectedStudent) return;
+    if (!user || user.role !== 'admin') {
+      setError('Permission denied');
+      return;
+    }
+
+    try {
+      setResettingPassword(true);
+      setError('');
+      const resp = await axios.post(`/students/${selectedStudent.id}/reset-password/`);
+      setTemporaryPassword(resp.data.temporary_password || '');
+      setTempPasswordDialogOpen(true);
+    } catch (err) {
+      setError('Failed to reset password');
+    } finally {
+      setResettingPassword(false);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -1045,7 +1071,27 @@ const StudentManagement = () => {
           )}
         </DialogContent>
         <DialogActions>
+          {user?.role === 'admin' && (
+            <Button color="warning" onClick={handleResetPassword} disabled={resettingPassword}>
+              {resettingPassword ? 'Resetting...' : 'Reset Password'}
+            </Button>
+          )}
           <Button onClick={() => setOpenProfileDialog(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Temporary password dialog — shown once with the generated password */}
+      <Dialog open={tempPasswordDialogOpen} onClose={() => setTempPasswordDialogOpen(false)}>
+        <DialogTitle>Temporary Password</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">This password will be shown only once. Share it securely with the student.</Typography>
+          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" sx={{ fontFamily: 'monospace' }}>{temporaryPassword}</Typography>
+            <Button size="small" onClick={() => { navigator.clipboard?.writeText(temporaryPassword); }}>Copy</Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setTempPasswordDialogOpen(false); setTemporaryPassword(''); }}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>

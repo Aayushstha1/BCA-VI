@@ -52,7 +52,7 @@ class Student(models.Model):
     # Academic Information
     current_class = models.CharField(max_length=20)
     current_section = models.CharField(max_length=10)
-    roll_number = models.CharField(max_length=10)
+    roll_number = models.CharField(max_length=10, blank=True, null=True)
     
     # QR Code
     qr_code = models.ImageField(upload_to='qr_codes/', blank=True, null=True)
@@ -69,18 +69,37 @@ class Student(models.Model):
         return f"{self.student_id} - {self.user.get_full_name()}"
     
     def save(self, *args, **kwargs):
+        # Assign student_id if missing
         if not self.student_id:
-            # Generate unique student ID if not provided
             self.student_id = f"STU{str(uuid.uuid4())[:8].upper()}"
-        
+
+        # Assign admission_number if missing
         if not self.admission_number:
-            # Generate admission number if not provided
             self.admission_number = f"ADM{str(uuid.uuid4())[:8].upper()}"
-        
+
+        # Auto-assign roll_number within class+section if not provided
+        if not self.roll_number:
+            try:
+                qs = Student.objects.filter(current_class=self.current_class, current_section=self.current_section)
+                if self.pk:
+                    qs = qs.exclude(pk=self.pk)
+                max_roll = 0
+                for s in qs.exclude(roll_number__isnull=True).exclude(roll_number=''):
+                    try:
+                        r = int(s.roll_number)
+                    except Exception:
+                        continue
+                    if r > max_roll:
+                        max_roll = r
+                self.roll_number = str(max_roll + 1)
+            except Exception:
+                # If anything goes wrong, fall back to '1'
+                self.roll_number = '1'
+
         # Generate QR code if not exists
         if not self.qr_code:
             self.generate_qr_code()
-        
+
         super().save(*args, **kwargs)
     
     def generate_qr_code(self):
@@ -182,3 +201,19 @@ class Student(models.Model):
         ordering = ['student_id']
         verbose_name = 'Student'
         verbose_name_plural = 'Students'
+        constraints = [
+            models.UniqueConstraint(fields=['current_class', 'current_section', 'roll_number'], name='unique_roll_per_section')
+        ]
+
+
+class ClassSection(models.Model):
+    """Represent a class and section combination (e.g., Class=12, Section=A)."""
+    class_name = models.CharField(max_length=20)
+    section = models.CharField(max_length=10, blank=True, null=True)
+
+    class Meta:
+        unique_together = ('class_name', 'section')
+        ordering = ['class_name', 'section']
+
+    def __str__(self):
+        return f"{self.class_name}{(' ' + self.section) if self.section else ''}"

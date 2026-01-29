@@ -50,6 +50,7 @@ class Teacher(models.Model):
     
     # System fields
     qr_code = models.ImageField(upload_to='qr_codes/', blank=True, null=True)
+    assigned_sections = models.ManyToManyField('students.ClassSection', blank=True, related_name='teachers', help_text='Class-section combinations this teacher is responsible for')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

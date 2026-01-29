@@ -32,7 +32,8 @@ import {
   Note as NotesIcon,
   Badge as AdmissionIcon,
   Campaign as NoticesIcon,
-  Assignment as TasksIcon
+  Assignment as TasksIcon,
+  Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import StudentHome from './Dashboard';
@@ -44,9 +45,13 @@ import Results from './Results';
 import Notes from './Notes';
 import Finance from './Finance';
 import Notices from './Notices';
+import NotificationsList from './NotificationsList';
 import Profile from './Profile';
 import Tasks from './Tasks';
 import { Wallet } from '@mui/icons-material';
+import { Badge } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 
 const drawerWidth = 220;
 
@@ -58,6 +63,17 @@ const StudentDashboard = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  const { data: unreadData } = useQuery({
+    queryKey: ['user-notifications-unread-count'],
+    queryFn: async () => {
+      const resp = await axios.get('notices/notifications/unread-count/');
+      return resp.data;
+    },
+    refetchInterval: 30000,
+  });
+
+  const unread = unreadData?.unread || 0;
+
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/student' },
     { text: 'Profile', icon: <AccountIcon />, path: '/student/profile' },
@@ -65,6 +81,7 @@ const StudentDashboard = () => {
     { text: 'Report Card', icon: <ReportIcon />, path: '/student/report-card' },
     { text: 'Admission', icon: <AdmissionIcon />, path: '/student/admission' },
     { text: 'Notices', icon: <NoticesIcon />, path: '/student/notices' },
+    { text: 'Notifications', icon: <Badge badgeContent={unread} color="error"><NotificationsIcon /></Badge>, path: '/student/notifications' },
     { text: 'Library', icon: <LibraryIcon />, path: '/student/library' },
     { text: 'Finance', icon: <Wallet />, path: '/student/finance' },
     { text: 'Attendance', icon: <AttendanceIcon />, path: '/student/attendance' },
@@ -221,6 +238,7 @@ const StudentDashboard = () => {
           <Route path="/report-card" element={<ReportCard />} />
           <Route path="/admission" element={<AdmissionRecords />} />
           <Route path="/notices" element={<Notices />} />
+          <Route path="/notifications" element={<NotificationsList />} />
           <Route path="/library" element={<Library />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/finance" element={<Finance />} />

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Task, TaskSubmission
 from students.models import Student
 from accounts.models import User
+from django.utils import timezone
 
 class TaskSerializer(serializers.ModelSerializer):
     assigned_by_name = serializers.CharField(source='assigned_by.get_full_name', read_only=True)
@@ -10,7 +11,7 @@ class TaskSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Task
-        fields = ['id', 'title', 'description', 'assigned_by', 'assigned_by_name', 'assigned_to_class', 
+        fields = ['id', 'title', 'description', 'assigned_by', 'assigned_by_name', 'assigned_to_class', 'assigned_to_section',
                   'due_date', 'status', 'created_at', 'total_marks', 'is_overdue', 'submission_count']
         read_only_fields = ['created_at', 'assigned_by']
     
@@ -29,7 +30,7 @@ class TaskDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Task
-        fields = ['id', 'title', 'description', 'assigned_by', 'assigned_by_name', 'assigned_to_class', 
+        fields = ['id', 'title', 'description', 'assigned_by', 'assigned_by_name', 'assigned_to_class', 'assigned_to_section',
                   'assigned_to_students', 'due_date', 'status', 'created_at', 'updated_at', 
                   'total_marks', 'is_overdue']
         read_only_fields = ['created_at', 'updated_at', 'assigned_by']
@@ -61,7 +62,7 @@ class TaskSubmissionCreateSerializer(serializers.ModelSerializer):
             task_id=task_id,
             student=student,
             submission_file=validated_data['submission_file'],
-            submitted_at=serializers.DateTimeField().to_representation(timezone.now()),
+            submitted_at=timezone.now(),
             status='submitted'
         )
         return submission

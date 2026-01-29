@@ -33,6 +33,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import TeacherHome from './Dashboard';
+import Tasks from './Tasks';
 import Classes from './Classes';
 import Attendance from './Attendance';
 import Results from './Results';
@@ -52,6 +53,7 @@ const TeacherDashboard = () => {
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/teacher' },
     { text: 'Classes', icon: <ClassesIcon />, path: '/teacher/classes' },
+    { text: 'Tasks', icon: <TasksIcon />, path: '/teacher/tasks' },
     { text: 'Attendance', icon: <AttendanceIcon />, path: '/teacher/attendance' },
     { text: 'Results', icon: <ResultsIcon />, path: '/teacher/results' },
     { text: 'Notes', icon: <NotesIcon />, path: '/teacher/notes' },
@@ -203,6 +205,7 @@ const TeacherDashboard = () => {
         <Routes>
           <Route path="/" element={<TeacherHome />} />
           <Route path="/classes" element={<Classes />} />
+          <Route path="/tasks" element={<Tasks />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/results" element={<Results />} />
           <Route path="/notes" element={<Notes />} />

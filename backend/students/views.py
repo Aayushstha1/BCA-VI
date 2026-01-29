@@ -267,3 +267,32 @@ class StudentProfilePictureUploadView(generics.UpdateAPIView):
         
         serializer = StudentProfileSerializer(student, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def reset_student_password(request, pk):
+    """Admin-only: generate a secure one-time password for a student and return it once."""
+    try:
+        student = Student.objects.select_related('user').get(pk=pk)
+    except Student.DoesNotExist:
+        return Response({'detail': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Only admin is allowed to reset and view the temporary password
+    if request.user.role != 'admin':
+        return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        import secrets, string
+        alphabet = string.ascii_letters + string.digits + "!@#$%&*"
+        temporary_password = ''.join(secrets.choice(alphabet) for _ in range(12))
+
+        user = student.user
+        user.set_password(temporary_password)
+        user.save()
+
+        # Optionally, you might want to log that admin performed a reset without storing the password
+        return Response({'temporary_password': temporary_password}, status=status.HTTP_200_OK)
+    except Exception:
+        logging.exception('Failed to reset student password')
+        return Response({'detail': 'Internal server error while resetting password'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -84,3 +84,21 @@ class NoticeRead(models.Model):
     class Meta:
         unique_together = ['notice', 'user']
         ordering = ['-read_at']
+
+
+class UserNotification(models.Model):
+    """
+    Simple per-user notification for events like graded submissions
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    link = models.CharField(max_length=500, blank=True, null=True, help_text='Optional link to related object (frontend)')
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Notification for {self.user.username}: {self.title}"

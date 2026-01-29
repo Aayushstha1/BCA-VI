@@ -52,7 +52,11 @@ const AdminTasks = () => {
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  const [classes, setClasses] = useState(['BCA-I', 'BCA-II', 'BCA-III']);
+  const [classes, setClasses] = useState([]);
+  const [sectionsMap, setSectionsMap] = useState({});
+  const [sections, setSections] = useState([]);
+  const [classCounts, setClassCounts] = useState({});
+  const [sectionCountsMap, setSectionCountsMap] = useState({});
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -62,7 +66,66 @@ const AdminTasks = () => {
     due_date: '',
     total_marks: 10,
     assigned_to_class: '',
+    assigned_to_section: '',
   });
+
+  // Fetch available classes and sections from students endpoint
+  useEffect(() => {
+    const fetchClassesAndSections = async () => {
+      try {
+        let token = localStorage.getItem('access_token') || localStorage.getItem('token');
+        const resp = await axios.get(`${API_BASE_URL}/students/`, {
+          headers: { Authorization: `Token ${token}` },
+        });
+        const data = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
+        const uniqueClasses = Array.from(new Set(data.map((s) => s.current_class).filter(Boolean)));
+        uniqueClasses.sort();
+        setClasses(uniqueClasses);
+
+        // Build sections map and counts
+        const map = {};
+        const cCounts = {};
+        const sCounts = {};
+        data.forEach((s) => {
+          if (!s.current_class) return;
+
+          // class counts
+          cCounts[s.current_class] = (cCounts[s.current_class] || 0) + 1;
+
+          // sections map
+          map[s.current_class] = map[s.current_class] || new Set();
+          if (s.current_section) map[s.current_class].add(s.current_section);
+
+          // section counts per class
+          sCounts[s.current_class] = sCounts[s.current_class] || {};
+          const sec = s.current_section || '';
+          sCounts[s.current_class][sec] = (sCounts[s.current_class][sec] || 0) + 1;
+        });
+
+        const plainMap = {};
+        Object.keys(map).forEach((k) => { plainMap[k] = Array.from(map[k]).sort(); });
+
+        setSectionsMap(plainMap);
+        setClassCounts(cCounts);
+        setSectionCountsMap(sCounts);
+      } catch (err) {
+        console.warn('Failed to load classes/sections for task assignment', err);
+      }
+    };
+
+    fetchClassesAndSections();
+  }, []);
+
+  // Update sections list when selected class changes
+  useEffect(() => {
+    const cls = formData.assigned_to_class;
+    setSections(formSectionsForClass(cls));
+  }, [formData.assigned_to_class]);
+
+  const formSectionsForClass = (cls) => {
+    if (!cls) return [];
+    return sectionsMap[cls] || [];
+  };
 
   const [gradeData, setGradeData] = useState({
     score: '',
@@ -281,7 +344,10 @@ const AdminTasks = () => {
                               <strong>Total Marks:</strong> {task.total_marks}
                             </Typography>
                             <Typography variant="caption">
-                              <strong>Class:</strong> {task.assigned_to_class || 'Individual'}
+                              <strong>Class:</strong> {task.assigned_to_class ? (task.assigned_to_section ? `${task.assigned_to_class} ${task.assigned_to_section}` : task.assigned_to_class) : 'Individual'}
+                            </Typography>
+                            <Typography variant="caption" sx={{ display: 'block' }}>
+                              <strong>Created by:</strong> {task.assigned_by_name}
                             </Typography>
                             <Chip
                               label={`${task.submission_count} Submissions`}
@@ -413,12 +479,29 @@ const AdminTasks = () => {
             <InputLabel>Assign to Class</InputLabel>
             <Select
               value={formData.assigned_to_class}
-              onChange={(e) => setFormData({ ...formData, assigned_to_class: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, assigned_to_class: e.target.value, assigned_to_section: '' })}
             >
               <MenuItem value="">Individual/None</MenuItem>
               {classes.map((c) => (
                 <MenuItem key={c} value={c}>
-                  {c}
+                  {c} {classCounts[c] ? `(${classCounts[c]} students)` : ''}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Section select: optional, appears after choosing a class */}
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Assign to Section (optional)</InputLabel>
+            <Select
+              value={formData.assigned_to_section}
+              onChange={(e) => setFormData({ ...formData, assigned_to_section: e.target.value })}
+              disabled={!formData.assigned_to_class || sections.length === 0}
+            >
+              <MenuItem value="">Whole class (All sections) {formData.assigned_to_class ? `(${classCounts[formData.assigned_to_class] || 0} students)` : ''}</MenuItem>
+              {sections.map((s) => (
+                <MenuItem key={s} value={s}>
+                  {s} {sectionCountsMap[formData.assigned_to_class] && sectionCountsMap[formData.assigned_to_class][s] ? `(${sectionCountsMap[formData.assigned_to_class][s]} students)` : ''}
                 </MenuItem>
               ))}
             </Select>
