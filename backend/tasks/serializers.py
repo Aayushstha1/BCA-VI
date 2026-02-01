@@ -41,13 +41,42 @@ class TaskSubmissionSerializer(serializers.ModelSerializer):
     student_id = serializers.CharField(source='student.student_id', read_only=True)
     task_title = serializers.CharField(source='task.title', read_only=True)
     due_date = serializers.DateTimeField(source='task.due_date', read_only=True)
+    average_rating = serializers.SerializerMethodField()
+    ratings_count = serializers.SerializerMethodField()
+    user_rating = serializers.SerializerMethodField()
     
     class Meta:
         model = TaskSubmission
         fields = ['id', 'task', 'task_title', 'student', 'student_name', 'student_id', 'submission_file',
-                  'submitted_at', 'score', 'feedback', 'status', 'is_late', 'due_date', 'created_at']
+                  'submitted_at', 'score', 'feedback', 'status', 'is_late', 'due_date', 'created_at', 'average_rating', 'ratings_count', 'user_rating']
         read_only_fields = ['created_at', 'is_late', 'status']
 
+    def get_average_rating(self, obj):
+        try:
+            agg = obj.ratings.aggregate(avg=models.Avg('score'), count=models.Count('id'))
+            return round(agg['avg'], 2) if agg['avg'] is not None else None
+        except Exception:
+            return None
+
+    def get_ratings_count(self, obj):
+        try:
+            agg = obj.ratings.aggregate(count=models.Count('id'))
+            return agg['count']
+        except Exception:
+            return 0
+
+    def get_user_rating(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return None
+        try:
+            rating = obj.ratings.filter(rater=user).first()
+            if rating:
+                return {'id': rating.id, 'score': rating.score, 'comment': rating.comment}
+            return None
+        except Exception:
+            return None
 
 class TaskSubmissionCreateSerializer(serializers.ModelSerializer):
     class Meta:

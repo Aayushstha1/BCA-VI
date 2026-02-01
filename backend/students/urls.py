@@ -13,4 +13,9 @@ urlpatterns = [
     path('<int:pk>/qr-code/', views.StudentQRCodeView.as_view(), name='student-qr-code'),
     path('<int:pk>/reset-password/', views.reset_student_password, name='student-reset-password'),
     path('search/', views.StudentSearchView.as_view(), name='student-search'),
+    # CV endpoints
+    path('cvs/', views.CVListCreateView.as_view(), name='cv-list-create'),
+    path('cvs/<int:pk>/', views.CVDetailView.as_view(), name='cv-detail'),
+    path('cvs/<int:pk>/rate/', views.CVRatingCreateView.as_view(), name='cv-rate'),
+    path('cvs/ratings/<int:rating_pk>/', views.CVRatingDetailView.as_view(), name='cv-rating-detail'),
 ]

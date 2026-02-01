@@ -6,12 +6,13 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.utils import timezone
 from django.db.models import Q, Avg, Count
-from .models import Task, TaskSubmission
+from .models import Task, TaskSubmission, SubmissionRating
 from .serializers import (
     TaskSerializer, TaskDetailSerializer, TaskSubmissionSerializer,
     TaskSubmissionCreateSerializer, TaskSubmissionGradeSerializer,
     StudentTaskScoreSerializer
 )
+from .rating_serializers import SubmissionRatingSerializer
 from students.models import Student
 
 class TaskListCreateView(generics.ListCreateAPIView):
@@ -269,3 +270,56 @@ def student_task_scores(request, student_id):
         'total_score': total_score,
         'average_score': round(avg_score, 2)
     })
+
+
+# Submission rating endpoints
+class SubmissionRatingCreateView(generics.CreateAPIView):
+    permission_classes = [drf_permissions.IsAuthenticated]
+    serializer_class = SubmissionRatingSerializer
+
+    def post(self, request, submission_id):
+        try:
+            submission = TaskSubmission.objects.get(pk=submission_id)
+        except TaskSubmission.DoesNotExist:
+            return Response({'detail': 'Submission not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = SubmissionRatingSerializer(data={**request.data, 'submission': submission.id}, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        return Response(SubmissionRatingSerializer(obj).data, status=status.HTTP_201_CREATED)
+
+
+class SubmissionRatingDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [drf_permissions.IsAuthenticated]
+    serializer_class = SubmissionRatingSerializer
+
+    def get_object(self):
+        try:
+            return SubmissionRating.objects.get(pk=self.kwargs.get('rating_pk'))
+        except SubmissionRating.DoesNotExist:
+            return None
+
+    def get(self, request, rating_pk):
+        obj = self.get_object()
+        if not obj:
+            return Response({'detail': 'Rating not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(SubmissionRatingSerializer(obj).data)
+
+    def put(self, request, rating_pk):
+        obj = self.get_object()
+        if not obj:
+            return Response({'detail': 'Rating not found'}, status=status.HTTP_404_NOT_FOUND)
+        if request.user != obj.rater and request.user.role != 'admin':
+            return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        serializer = SubmissionRatingSerializer(obj, data=request.data, partial=True, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(SubmissionRatingSerializer(obj).data)
+
+    def delete(self, request, rating_pk):
+        obj = self.get_object()
+        if not obj:
+            return Response({'detail': 'Rating not found'}, status=status.HTTP_404_NOT_FOUND)
+        if request.user != obj.rater and request.user.role != 'admin':
+            return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
