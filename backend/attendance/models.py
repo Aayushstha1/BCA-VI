@@ -25,9 +25,10 @@ class Subject(models.Model):
 
 class AttendanceSession(models.Model):
     """
-    A session for taking attendance for a class/section/period on a specific date and subject.
+    A session for taking attendance for a class/section/period on a specific date. Subject is optional.
     """
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='sessions')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='sessions', null=True, blank=True)
+    subject_name = models.CharField(max_length=255, null=True, blank=True)
     date = models.DateField()
     period = models.PositiveIntegerField(default=1)
     class_name = models.CharField(max_length=100)
@@ -37,16 +38,21 @@ class AttendanceSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.subject.name} {self.class_name}-{self.section} P{self.period} {self.date}"
+        if self.subject:
+            return f"{self.subject.name} {self.class_name}-{self.section} P{self.period} {self.date}"
+        if self.subject_name:
+            return f"{self.subject_name} {self.class_name}-{self.section} P{self.period} {self.date}"
+        return f"{self.class_name}-{self.section} P{self.period} {self.date}"
 
     class Meta:
-        unique_together = ['subject', 'date', 'period', 'class_name', 'section']
-        ordering = ['-date', 'subject__name', 'period']
+        unique_together = ['date', 'period', 'class_name', 'section']
+        ordering = ['-date', 'period']
 
 
 class Attendance(models.Model):
     """
     Attendance model for tracking student attendance
+    Subject is optional to support class/section-only attendance.
     """
     ATTENDANCE_STATUS = [
         ('present', 'Present'),
@@ -57,7 +63,8 @@ class Attendance(models.Model):
     
     session = models.ForeignKey('AttendanceSession', on_delete=models.CASCADE, related_name='attendances', null=True, blank=True)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendances')
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='attendances')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='attendances', null=True, blank=True)
+    subject_name = models.CharField(max_length=255, null=True, blank=True)
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='marked_attendances')
     date = models.DateField()
     status = models.CharField(max_length=10, choices=ATTENDANCE_STATUS, default='absent')
@@ -66,10 +73,11 @@ class Attendance(models.Model):
     marked_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='marked_attendances')
     
     def __str__(self):
-        return f"{self.student.student_id} - {self.subject.name} - {self.date} - {self.status}"
+        subject_part = self.subject.name if self.subject else (self.subject_name or 'NoSubject')
+        return f"{self.student.student_id} - {subject_part} - {self.date} - {self.status}"
     
     class Meta:
-        unique_together = ['student', 'subject', 'date']
+        unique_together = ['student', 'date']
         ordering = ['-date', 'student__student_id']
         verbose_name = 'Attendance'
         verbose_name_plural = 'Attendance Records'
@@ -78,9 +86,11 @@ class Attendance(models.Model):
 class AttendanceReport(models.Model):
     """
     Model for generating attendance reports
+    Subject is optional for class/section level reports.
     """
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='attendance_reports')
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='attendance_reports')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='attendance_reports', null=True, blank=True)
+    subject_name = models.CharField(max_length=255, null=True, blank=True)
     month = models.PositiveIntegerField()  # 1-12
     year = models.PositiveIntegerField()
     total_days = models.PositiveIntegerField(default=0)
@@ -92,7 +102,8 @@ class AttendanceReport(models.Model):
     generated_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
-        return f"{self.student.student_id} - {self.subject.name} - {self.month}/{self.year} - {self.attendance_percentage}%"
+        subject_part = self.subject.name if self.subject else (self.subject_name or 'NoSubject')
+        return f"{self.student.student_id} - {subject_part} - {self.month}/{self.year} - {self.attendance_percentage}%"
     
     def calculate_percentage(self):
         if self.total_days > 0:
@@ -106,7 +117,7 @@ class AttendanceReport(models.Model):
         super().save(*args, **kwargs)
     
     class Meta:
-        unique_together = ['student', 'subject', 'month', 'year']
+        unique_together = ['student', 'month', 'year']
         ordering = ['-year', '-month', 'student__student_id']
         verbose_name = 'Attendance Report'
         verbose_name_plural = 'Attendance Reports'

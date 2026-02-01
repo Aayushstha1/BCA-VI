@@ -18,15 +18,15 @@ class AttendanceAdmin(admin.ModelAdmin):
     """
     Admin interface for Attendance management
     """
-    list_display = ('student', 'subject', 'date', 'status', 'teacher', 'marked_at')
-    list_filter = ('status', 'date', 'subject', 'teacher')
+    list_display = ('student', 'date', 'status', 'teacher', 'marked_at')
+    list_filter = ('status', 'date', 'teacher')
     search_fields = ('student__student_id', 'student__user__first_name', 'student__user__last_name')
     date_hierarchy = 'date'
     readonly_fields = ('marked_at',)
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
-            'student__user', 'subject', 'teacher__user', 'marked_by'
+            'student__user', 'teacher__user', 'marked_by'
         )
 
 
@@ -35,10 +35,10 @@ class AttendanceReportAdmin(admin.ModelAdmin):
     """
     Admin interface for Attendance Report management
     """
-    list_display = ('student', 'subject', 'month', 'year', 'attendance_percentage', 'total_days', 'present_days')
-    list_filter = ('year', 'month', 'subject')
+    list_display = ('student', 'month', 'year', 'attendance_percentage', 'total_days', 'present_days')
+    list_filter = ('year', 'month')
     search_fields = ('student__student_id', 'student__user__first_name', 'student__user__last_name')
     readonly_fields = ('attendance_percentage', 'generated_at')
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('student__user', 'subject')
+        return super().get_queryset(request).select_related('student__user')

@@ -67,7 +67,26 @@ const Notes = () => {
       });
       setFile(null);
     },
-    onError: (e) => setError(e.response?.data?.message || 'Failed to create note'),
+    onError: (e) => {
+      const errorData = e.response?.data;
+      let errorMsg = 'Failed to create note';
+      if (errorData) {
+        if (errorData.message) {
+          errorMsg = errorData.message;
+        } else if (errorData.errors) {
+          // Format validation errors
+          const errorList = Object.entries(errorData.errors).map(([key, val]) => 
+            `${key}: ${Array.isArray(val) ? val.join(', ') : val}`
+          ).join('; ');
+          errorMsg = errorList || JSON.stringify(errorData.errors);
+        } else if (typeof errorData === 'string') {
+          errorMsg = errorData;
+        } else {
+          errorMsg = JSON.stringify(errorData);
+        }
+      }
+      setError(errorMsg);
+    },
   });
 
   const handleInputChange = (e) => {

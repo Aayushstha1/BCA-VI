@@ -28,8 +28,12 @@ import {
   Card,
   CardContent,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Avatar
 } from '@mui/material';
+import { CameraAlt as CameraAltIcon } from '@mui/icons-material';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import {
   Event as AttendanceIcon,
   QrCodeScanner as QRScannerIcon,
@@ -48,11 +52,13 @@ const AttendanceManagement = () => {
   const [openMarkDialog, setOpenMarkDialog] = useState(false);
   const [students, setStudents] = useState([]);
   const [studentsLoading, setStudentsLoading] = useState(false);
+  const [uploading, setUploading] = useState({});
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [attendanceMarks, setAttendanceMarks] = useState({});
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
-    subject: '',
     class_name: '',
     section: '',
     period: 1
@@ -61,6 +67,7 @@ const AttendanceManagement = () => {
   const [error, setError] = useState('');
   const [qrCode, setQrCode] = useState('');
   const [activeSessionId, setActiveSessionId] = useState(null);
+  const [duplicateSession, setDuplicateSession] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -72,13 +79,7 @@ const AttendanceManagement = () => {
     },
   });
 
-  const { data: subjects, isError: isSubjectsError, error: subjectsError } = useQuery({
-    queryKey: ['subjects'],
-    queryFn: async () => {
-      const response = await axios.get('/attendance/subjects/');
-      return response.data;
-    },
-  });
+
 
   const formatDate = (value) => {
     try {
@@ -98,16 +99,23 @@ const AttendanceManagement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['sessions']);
       setOpenDialog(false);
+      setDuplicateSession(null);
       setFormData({
         date: new Date().toISOString().split('T')[0],
-        subject: '',
         class_name: '',
         section: '',
         period: 1
       });
     },
     onError: (error) => {
-      setError(error.response?.data?.message || 'Failed to create attendance session');
+      const data = error.response?.data;
+      let msg = 'Failed to create attendance session';
+      if (data) {
+        if (typeof data === 'string') msg = data;
+        else if (data.detail) msg = data.detail;
+        else msg = JSON.stringify(data);
+      }
+      setError(msg);
     }
   });
 
@@ -123,7 +131,14 @@ const AttendanceManagement = () => {
       setActiveSessionId(null);
     },
     onError: (error) => {
-      setError(error.response?.data?.message || 'Failed to mark attendance');
+      const data = error.response?.data;
+      let msg = 'Failed to mark attendance';
+      if (data) {
+        if (typeof data === 'string') msg = data;
+        else if (data.detail) msg = data.detail;
+        else msg = JSON.stringify(data);
+      }
+      setError(msg);
     }
   });
 
@@ -135,9 +150,9 @@ const AttendanceManagement = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setError('');
+    setDuplicateSession(null);
     setFormData({
       date: new Date().toISOString().split('T')[0],
-      subject: '',
       class_name: '',
       section: '',
       period: 1
@@ -160,7 +175,20 @@ const AttendanceManagement = () => {
     try {
       // Fetch students for the class and section of the attendance session
       const response = await axios.get(`/students/?class=${encodeURIComponent(attendance.class_name)}&section=${encodeURIComponent(attendance.section || '')}`);
-      const studentsData = Array.isArray(response.data) ? response.data : (response.data.results || []);
+      let studentsData = Array.isArray(response.data) ? response.data : (response.data.results || []);
+
+      // Sort students by roll number (numeric when possible), then by name
+      studentsData.sort((a, b) => {
+        const ra = parseInt(a.roll_number, 10);
+        const rb = parseInt(b.roll_number, 10);
+        if (!isNaN(ra) && !isNaN(rb)) return ra - rb;
+        if (!isNaN(ra)) return -1;
+        if (!isNaN(rb)) return 1;
+        const na = ((a.user?.first_name || '') + ' ' + (a.user?.last_name || '')).trim();
+        const nb = ((b.user?.first_name || '') + ' ' + (b.user?.last_name || '')).trim();
+        return na.localeCompare(nb);
+      });
+
       setStudents(studentsData);
 
       // Initialize marks to absent by default
@@ -168,7 +196,14 @@ const AttendanceManagement = () => {
       studentsData.forEach((s) => { initialMarks[s.id] = 'absent'; });
       setAttendanceMarks(initialMarks);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load students');
+      const data = err.response?.data;
+      let msg = 'Failed to load students';
+      if (data) {
+        if (typeof data === 'string') msg = data;
+        else if (data.detail) msg = data.detail;
+        else msg = JSON.stringify(data);
+      }
+      setError(msg);
     } finally {
       setStudentsLoading(false);
     }
@@ -189,23 +224,57 @@ const AttendanceManagement = () => {
     }));
   };
 
+  const uploadProfilePicture = async (studentId, file) => {
+    setUploading((u) => ({ ...u, [studentId]: true }));
+    try {
+      const fd = new FormData();
+      fd.append('profile_picture', file);
+      const resp = await axios.put(`/students/${studentId}/profile-picture/`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      // Update student's profile_picture_url locally
+      setStudents((prev) => prev.map((st) => st.id === studentId ? { ...st, profile_picture_url: resp.data.profile_picture_url || resp.data.profile_picture } : st));
+      queryClient.invalidateQueries(['sessions']);
+    } catch (err) {
+      const data = err.response?.data;
+      let msg = 'Failed to upload profile picture';
+      if (data) {
+        if (typeof data === 'string') msg = data;
+        else if (data.detail) msg = data.detail;
+        else msg = JSON.stringify(data);
+      }
+      setError(msg);
+    } finally {
+      setUploading((u) => ({ ...u, [studentId]: false }));
+    }
+  };
+
   const handleSaveMarks = async () => {
     if (!activeSessionId) return;
     setLoading(true);
     try {
-      const posts = Object.keys(attendanceMarks).map((studentId) => {
-        return axios.post('/attendance/mark/', {
+      // Process requests sequentially to avoid SQLite database lock errors
+      const studentIds = Object.keys(attendanceMarks);
+      for (const studentId of studentIds) {
+        await axios.post('/attendance/mark/', {
           session: activeSessionId,
           student: parseInt(studentId, 10),
           status: attendanceMarks[studentId],
         });
-      });
+      }
 
-      await Promise.all(posts);
       queryClient.invalidateQueries(['sessions']);
       handleCloseMarkDialog();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save attendance marks');
+      const data = err.response?.data;
+      let msg = 'Failed to save attendance marks';
+      if (data) {
+        if (typeof data === 'string') msg = data;
+        else if (data.detail) msg = data.detail;
+        else msg = JSON.stringify(data);
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -226,10 +295,43 @@ const AttendanceManagement = () => {
     setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    createAttendanceMutation.mutate(formData);
+
+    // Remove any empty string fields (e.g., subject: '') so serializer doesn't reject them
+    const payload = { ...formData };
+    Object.keys(payload).forEach((k) => {
+      if (payload[k] === '') delete payload[k];
+    });
+
+    // Client-side uniqueness check: avoid POSTing a duplicate session
+    try {
+      const checkDate = payload.date || selectedDate;
+      let sessionsForDate = sessionsArray;
+      if (checkDate !== selectedDate) {
+        const resp = await axios.get(`/attendance/sessions/?date=${checkDate}`);
+        sessionsForDate = Array.isArray(resp.data) ? resp.data : (resp.data.results || []);
+      }
+
+      const duplicate = sessionsForDate.find((s) => (
+        s.class_name === payload.class_name &&
+        (s.section || '') === (payload.section || '') &&
+        parseInt(s.period, 10) === parseInt(payload.period, 10)
+      ));
+
+        if (duplicate) {
+        setError('An attendance session for this date, period, class and section already exists.');
+        setDuplicateSession(duplicate);
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      // If check fails, still attempt creation; server-side validation will catch duplicates
+      // but surface the exact message in the dialog.
+    }
+
+    createAttendanceMutation.mutate(payload);
     setLoading(false);
   };
 
@@ -270,7 +372,6 @@ const AttendanceManagement = () => {
   }
 
   const sessionsArray = Array.isArray(sessions) ? sessions : (sessions?.results || []);
-  const subjectsArray = Array.isArray(subjects) ? subjects : (subjects?.results || []);
 
   return (
     <Box>
@@ -325,7 +426,7 @@ const AttendanceManagement = () => {
                   <CardContent>
                     <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
                       <Typography variant="h6" component="h2">
-                        {attendance.subject_name}
+                        {attendance.class_name} {attendance.section}
                       </Typography>
                       <Chip
                         label={`Period ${attendance.period}`}
@@ -401,9 +502,25 @@ const AttendanceManagement = () => {
         <form onSubmit={handleSubmit}>
           <DialogContent>
             {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
+              <>
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {error}
+                </Alert>
+                {duplicateSession && (
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        // Close the create dialog and open the existing session for marking
+                        setOpenDialog(false);
+                        setTimeout(() => handleOpenMarkDialog(duplicateSession), 0);
+                      }}
+                    >
+                      Open existing session
+                    </Button>
+                  </Box>
+                )}
+              </>
             )}
             
             <Grid container spacing={2}>
@@ -420,23 +537,7 @@ const AttendanceManagement = () => {
                 />
               </Grid>
               
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>Subject</InputLabel>
-                  <Select
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleInputChange}
-                    label="Subject"
-                  >
-                    {subjectsArray.map((subject) => (
-                      <MenuItem key={subject.id} value={subject.id}>
-                        {subject.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
+
               
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -506,6 +607,7 @@ const AttendanceManagement = () => {
               <Table>
                 <TableHead>
                   <TableRow>
+                    <TableCell>Photo</TableCell>
                     <TableCell>Roll</TableCell>
                     <TableCell>Name</TableCell>
                     <TableCell>Class</TableCell>
@@ -515,8 +617,49 @@ const AttendanceManagement = () => {
                 <TableBody>
                   {students.map((s) => (
                     <TableRow key={s.id} hover>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => navigate(`/public/student/${s.student_id}`)}
+                            aria-label="Open profile"
+                          >
+                            <Avatar
+                              alt={`${(s.user_details?.first_name || '')} ${(s.user_details?.last_name || '')}`.trim() || s.user || s.student_id}
+                              src={s.profile_picture_url || s.user_details?.profile_picture}
+                              sx={{ width: 56, height: 56 }}
+                            />
+                          </IconButton>
+
+                          {user && user.role === 'admin' && (
+                            <>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                id={`pf-${s.id}`}
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                  const f = e.target.files && e.target.files[0];
+                                  if (f) uploadProfilePicture(s.id, f);
+                                }}
+                              />
+                              <Tooltip title="Upload photo">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => document.getElementById(`pf-${s.id}`).click()}
+                                    disabled={uploading[s.id]}
+                                  >
+                                    {uploading[s.id] ? <CircularProgress size={20} /> : <CameraAltIcon fontSize="small" />}
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Box>
+                      </TableCell>
                       <TableCell>{s.roll_number || '-'}</TableCell>
-                      <TableCell>{s.user?.first_name} {s.user?.last_name}</TableCell>
+                      <TableCell>{`${(s.user_details?.first_name || '')} ${(s.user_details?.last_name || '')}`.trim() || s.user || s.student_id}</TableCell>
                       <TableCell>{s.current_class} {s.current_section}</TableCell>
                       <TableCell align="center">
                         <FormControlLabel

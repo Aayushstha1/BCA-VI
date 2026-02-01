@@ -164,16 +164,34 @@ def change_password_view(request):
 def dashboard_stats_view(request):
     """
     Get dashboard statistics based on user role
+    Uses concrete Student/Teacher models when available to avoid counting stale or unlinked User objects.
     """
     user = request.user
-    
+
+    # Import related models lazily to avoid circular import issues
+    try:
+        from students.models import Student
+    except Exception:
+        Student = None
+
+    try:
+        from teachers.models import Teacher
+    except Exception:
+        Teacher = None
+
     if user.role == 'admin':
+        # Prefer counting actual Student/Teacher model instances when available
+        total_students = Student.objects.count() if Student is not None else User.objects.filter(role='student').count()
+        total_teachers = Teacher.objects.count() if Teacher is not None else User.objects.filter(role='teacher').count()
+        active_students = Student.objects.filter(is_active=True).count() if Student is not None else User.objects.filter(role='student', is_active=True).count()
+        active_teachers = Teacher.objects.filter(is_active=True).count() if Teacher is not None else User.objects.filter(role='teacher', is_active=True).count()
+
         stats = {
-            'total_students': User.objects.filter(role='student').count(),
-            'total_teachers': User.objects.filter(role='teacher').count(),
+            'total_students': total_students,
+            'total_teachers': total_teachers,
             'total_users': User.objects.count(),
-            'active_students': User.objects.filter(role='student', is_active=True).count(),
-            'active_teachers': User.objects.filter(role='teacher', is_active=True).count(),
+            'active_students': active_students,
+            'active_teachers': active_teachers,
         }
     elif user.role == 'teacher':
         stats = {
@@ -183,5 +201,5 @@ def dashboard_stats_view(request):
         stats = {
             'profile_complete': bool(user.first_name and user.last_name and user.phone),
         }
-    
+
     return Response(stats)

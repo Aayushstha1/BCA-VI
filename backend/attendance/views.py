@@ -5,6 +5,8 @@ from rest_framework.views import APIView
 from django.utils.dateparse import parse_date
 from django.shortcuts import get_object_or_404
 from .models import Subject, Attendance, AttendanceReport, AttendanceSession
+from students.models import Student
+from teachers.models import Teacher
 from .serializers import (
     SubjectSerializer,
     AttendanceSerializer,
@@ -59,7 +61,7 @@ class AttendanceSessionListCreateView(generics.ListCreateAPIView):
         # Try to set teacher automatically if the user is a teacher.
         teacher = None
         try:
-            teacher = self.request.user.teacher
+            teacher = self.request.user.teacher_profile
         except Exception:
             teacher = None
         serializer.save(created_by=self.request.user, teacher=teacher)
@@ -78,15 +80,25 @@ class MarkAttendanceView(APIView):
             return Response({'message': 'session, student, and status are required'}, status=400)
 
         session = get_object_or_404(AttendanceSession, id=session_id)
-        student = get_object_or_404(session.attendances.model._meta.get_field('student').remote_field.model, id=student_id)
+        student = get_object_or_404(Student, id=student_id)
 
-        # Determine teacher
+        # Determine teacher - ensure it's not None
         teacher = session.teacher
         if teacher is None:
             try:
-                teacher = request.user.teacher
+                teacher = request.user.teacher_profile
             except Exception:
-                teacher = None
+                # If user is admin, try to get any active teacher as fallback
+                if request.user.role == 'admin':
+                    teacher = Teacher.objects.filter(is_active=True).first()
+                    if teacher is None:
+                        return Response({
+                            'message': 'No active teacher found in the system. Please create a teacher account first.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    return Response({
+                        'message': 'Teacher is required for marking attendance. Please ensure the session has a teacher or you are associated with a teacher account.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
 
         attendance, _created = Attendance.objects.update_or_create(
             session=session,

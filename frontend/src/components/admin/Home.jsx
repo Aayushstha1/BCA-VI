@@ -55,17 +55,24 @@ const Home = () => {
     active_teachers: 0,
   });
 
-  const { data: dashboardData, isLoading, error } = useQuery({
+  const [lastUpdated, setLastUpdated] = React.useState(null);
+
+  const { data: dashboardData, isLoading, error, isFetching } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       const response = await axios.get('/accounts/dashboard-stats/');
       return response.data;
     },
+    // Poll every 10 seconds for near-real-time stats
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
+    staleTime: 5000,
   });
 
   useEffect(() => {
     if (dashboardData) {
       setStats(dashboardData);
+      setLastUpdated(new Date());
     }
   }, [dashboardData]);
 
@@ -124,6 +131,14 @@ const Home = () => {
       <Typography variant="h4" gutterBottom>
         Admin Dashboard
       </Typography>
+
+      <Box display="flex" alignItems="center" gap={1} mb={1}>
+        {isFetching ? <CircularProgress size={14} /> : null}
+        <Typography variant="body2" color="text.secondary">
+          {lastUpdated ? `Last updated: ${new Date(lastUpdated).toLocaleTimeString()}` : 'Live updates enabled'}
+        </Typography>
+      </Box>
+
       <Typography variant="body1" color="text.secondary" gutterBottom>
         Welcome to the Student Management System admin panel. Here's an overview of your institution.
       </Typography>
