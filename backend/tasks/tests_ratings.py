@@ -18,16 +18,16 @@ class SubmissionRatingTests(TestCase):
 
     def test_teacher_can_rate_submission(self):
         self.client.force_authenticate(user=self.teacher)
-        resp = self.client.post(f'/api/tasks/submission/{self.submission.id}/rate/', {'score': 4, 'comment': 'Well done'})
+        resp = self.client.post(f'/api/tasks/submission/{self.submission.id}/rate/', {'score': 4, 'comment': 'Well done'}, format='json')
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data['score'], 4)
 
     def test_admin_can_rate_submission(self):
         self.client.force_authenticate(user=self.admin)
-        resp = self.client.post(f'/api/tasks/submission/{self.submission.id}/rate/', {'score': 5})
+        resp = self.client.post(f'/api/tasks/submission/{self.submission.id}/rate/', {'score': 5}, format='json')
         self.assertEqual(resp.status_code, 201)
 
     def test_student_cannot_rate_submission(self):
         self.client.force_authenticate(user=self.student_user)
-        resp = self.client.post(f'/api/tasks/submission/{self.submission.id}/rate/', {'score': 3})
+        resp = self.client.post(f'/api/tasks/submission/{self.submission.id}/rate/', {'score': 3}, format='json')
         self.assertEqual(resp.status_code, 400)

@@ -370,6 +370,24 @@ class CVRatingDetailView(generics.RetrieveUpdateDestroyAPIView):
         from .serializers import CVRatingSerializer
         return CVRatingSerializer(obj).data
 
+
+class CVRatingsListView(generics.ListAPIView):
+    """List ratings for a CV. Accessible to admin, teacher, or the CV owner."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            cv = CV.objects.get(pk=pk)
+        except CV.DoesNotExist:
+            return Response({'detail': 'CV not found'}, status=status.HTTP_404_NOT_FOUND)
+        # Allow admin/teacher or the owner to view ratings
+        if request.user.role not in ['admin', 'teacher'] and request.user != cv.owner:
+            return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        qs = cv.ratings.select_related('rater').all()
+        from .serializers import CVRatingSerializer
+        serializer = CVRatingSerializer(qs, many=True)
+        return Response(serializer.data)
+
 class CVDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = CV.objects.select_related('owner').all()
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadForStaffTeacher]

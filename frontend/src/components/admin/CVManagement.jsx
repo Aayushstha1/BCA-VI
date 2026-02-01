@@ -16,6 +16,10 @@ const CVManagement = () => {
   const [editIsPrimary, setEditIsPrimary] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [ratingsOpen, setRatingsOpen] = useState(false);
+  const [ratingsList, setRatingsList] = useState([]);
+  const [ratingsLoading, setRatingsLoading] = useState(false);
+  const [ratingsError, setRatingsError] = useState('');
 
   useEffect(() => { fetchCVs(); }, []);
 
@@ -73,6 +77,33 @@ const CVManagement = () => {
     setPreviewOpen(true);
   };
 
+  const openRatings = async (cv) => {
+    try {
+      setRatingsLoading(true);
+      setRatingsError('');
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      const resp = await axios.get(`${API_BASE_URL}/students/cvs/${cv.id}/ratings/`, { headers: { Authorization: `Token ${token}` } });
+      setRatingsList(resp.data || []);
+      setRatingsOpen(true);
+    } catch (err) {
+      setRatingsError('Failed to load ratings');
+    } finally {
+      setRatingsLoading(false);
+    }
+  };
+
+  const handleDeleteRating = async (ratingId) => {
+    if (!window.confirm('Delete this rating?')) return;
+    try {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      await axios.delete(`${API_BASE_URL}/students/cvs/ratings/${ratingId}/`, { headers: { Authorization: `Token ${token}` } });
+      setRatingsList(ratingsList.filter((r) => r.id !== ratingId));
+      fetchCVs();
+    } catch (err) {
+      setRatingsError('Failed to delete rating');
+    }
+  };
+
   if (loading) return <Container sx={{ mt: 6 }}><CircularProgress /></Container>;
 
   return (
@@ -87,6 +118,8 @@ const CVManagement = () => {
               <TableCell>Title</TableCell>
               <TableCell>Summary</TableCell>
               <TableCell>File</TableCell>
+              <TableCell>Avg Rating</TableCell>
+              <TableCell>Ratings</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -98,6 +131,10 @@ const CVManagement = () => {
                 <TableCell>
                   {cv.file_url ? <Button href={cv.file_url} target="_blank">Download</Button> : '—'}
                   {cv.file_url && <Button size="small" variant="outlined" sx={{ ml: 1 }} onClick={() => handlePreview(cv.file_url)}>Preview</Button>}
+                </TableCell>
+                <TableCell>{cv.average_rating ? cv.average_rating.toFixed(1) : '—'}</TableCell>
+                <TableCell>
+                  <Button size="small" onClick={() => openRatings(cv)}>View Ratings</Button>
                 </TableCell>
                 <TableCell>
                   <IconButton onClick={() => handleEditOpen(cv)}><EditIcon /></IconButton>
@@ -139,6 +176,30 @@ const CVManagement = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPreviewOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={ratingsOpen} onClose={() => setRatingsOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>CV Ratings</DialogTitle>
+        <DialogContent>
+          {ratingsLoading ? (
+            <CircularProgress />
+          ) : ratingsError ? (
+            <Alert severity="error">{ratingsError}</Alert>
+          ) : ratingsList.length === 0 ? (
+            <Typography>No ratings yet</Typography>
+          ) : (
+            ratingsList.map((r) => (
+              <Paper key={r.id} sx={{ p: 2, mb: 1 }}>
+                <Typography><strong>{r.rater}</strong> — {r.score}/5</Typography>
+                <Typography variant="body2">{r.comment || 'No comment'}</Typography>
+                <Button size="small" color="error" sx={{ mt: 1 }} onClick={() => handleDeleteRating(r.id)}>Delete</Button>
+              </Paper>
+            ))
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRatingsOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
 

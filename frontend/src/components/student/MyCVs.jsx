@@ -176,6 +176,19 @@ const MyCVs = () => {
           <Button onClick={() => setPreviewOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={ratingDialogOpen} onClose={() => setRatingDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Rate CV</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>Only admins and teachers can rate CVs.</Typography>
+          <TextField label="Score (1-5)" type="number" fullWidth value={ratingScore} onChange={(e) => setRatingScore(parseInt(e.target.value) || 1)} inputProps={{ min: 1, max: 5 }} sx={{ mb: 2 }} />
+          <TextField label="Comment (optional)" fullWidth multiline rows={4} value={ratingComment} onChange={(e) => setRatingComment(e.target.value)} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRatingDialogOpen(false)}>Cancel</Button>
+          <Button onClick={submitRating} variant="contained">Submit</Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
