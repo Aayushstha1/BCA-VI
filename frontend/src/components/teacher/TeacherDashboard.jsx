@@ -26,6 +26,7 @@ import {
   Logout as LogoutIcon,
   Dashboard as DashboardIcon,
   Class as ClassesIcon,
+  Assignment as TasksIcon,
   AssignmentTurnedIn as AttendanceIcon,
   LibraryBooks as LibraryIcon,
   Grade as ResultsIcon,
