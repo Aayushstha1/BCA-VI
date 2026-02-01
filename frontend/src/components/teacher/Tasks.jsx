@@ -29,6 +29,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import GradeIcon from '@mui/icons-material/Grade';
+import SubmissionRatings from '../admin/SubmissionRatings';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
 
@@ -60,6 +61,8 @@ const TeacherTasks = () => {
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [gradeData, setGradeData] = useState({ score: '', feedback: '' });
   const [submittingGrade, setSubmittingGrade] = useState(false);
+  const [ratingDialogOpenLocal, setRatingDialogOpenLocal] = useState(false);
+  const [selectedSubmissionToRate, setSelectedSubmissionToRate] = useState(null);
 
   // Inline edit state
   const [editingSubmissionId, setEditingSubmissionId] = useState(null);
@@ -302,6 +305,7 @@ const TeacherTasks = () => {
                             {sub.submission_file && (
                               <Button size="small" href={sub.submission_file} target="_blank" rel="noopener noreferrer" sx={{ ml: 1 }}>View</Button>
                             )}
+                            <Button size="small" color="secondary" sx={{ ml: 1 }} onClick={() => { setSelectedSubmissionToRate(sub); setRatingDialogOpenLocal(true); }}>Rate</Button>
                           </>
                         )}
                       </TableCell>
@@ -365,6 +369,13 @@ const TeacherTasks = () => {
           <Button onClick={handleCreateTask} variant="contained" color="primary">Create</Button>
         </DialogActions>
       </Dialog>
+
+      <SubmissionRatings
+        open={ratingDialogOpenLocal}
+        onClose={() => { setRatingDialogOpenLocal(false); setSelectedSubmissionToRate(null); }}
+        submissionId={selectedSubmissionToRate?.id}
+        onSaved={() => { if (selectedTaskForSubmissions) handleViewSubmissions(selectedTaskForSubmissions); else fetchTasks(); }}
+      />
 
     </Container>
   );

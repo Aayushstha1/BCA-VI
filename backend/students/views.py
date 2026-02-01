@@ -269,6 +269,145 @@ class StudentProfilePictureUploadView(generics.UpdateAPIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+# ------------------ CV Views ------------------
+from rest_framework import generics, permissions
+from .serializers import CVSerializer, CVCreateUpdateSerializer
+from .models import CV
+
+class IsOwnerOrReadForStaffTeacher(permissions.BasePermission):
+    """Owner has full control, admin has full control, teacher has read-only access."""
+    def has_object_permission(self, request, view, obj):
+        # Admins have full access
+        if request.user.role == 'admin':
+            return True
+        if request.method in permissions.SAFE_METHODS:
+            # allow read if owner or teacher
+            return obj.owner == request.user or request.user.role == 'teacher'
+        # write operations allowed only for owner
+        return obj.owner == request.user
+
+class CVListCreateView(generics.ListCreateAPIView):
+    serializer_class = CVSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ['admin', 'teacher']:
+            return CV.objects.select_related('owner').all()
+        return CV.objects.filter(owner=user)
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return CVCreateUpdateSerializer
+        return CVSerializer
+
+    def create(self, request, *args, **kwargs):
+        # use the create/update serializer for validation and file handling
+        serializer = CVCreateUpdateSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save(owner=request.user)
+        response_serializer = CVSerializer(obj, context={'request': request})
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+class CVRatingCreateView(generics.CreateAPIView):
+    """Create or update a rating for a CV by admin/teacher"""
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = None
+
+    def post(self, request, pk):
+        from .serializers import CVRatingSerializer
+        try:
+            cv = CV.objects.get(pk=pk)
+        except CV.DoesNotExist:
+            return Response({'detail': 'CV not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CVRatingSerializer(data={**request.data, 'cv': cv.id}, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        obj = serializer.save()
+        return Response(CVRatingSerializer(obj).data, status=status.HTTP_201_CREATED)
+
+
+class CVRatingDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = None
+
+    def get_object(self):
+        from students.cv import CVRating
+        try:
+            return CVRating.objects.get(pk=self.kwargs.get('rating_pk'))
+        except CVRating.DoesNotExist:
+            return None
+
+    def get(self, request, rating_pk):
+        obj = self.get_object()
+        if not obj:
+            return Response({'detail': 'Rating not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(self._serialize(obj))
+
+    def put(self, request, rating_pk):
+        obj = self.get_object()
+        if not obj:
+            return Response({'detail': 'Rating not found'}, status=status.HTTP_404_NOT_FOUND)
+        # Only rater or admin can update
+        if request.user != obj.rater and request.user.role != 'admin':
+            return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        from .serializers import CVRatingSerializer
+        serializer = CVRatingSerializer(obj, data=request.data, partial=True, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(self._serialize(obj))
+
+    def delete(self, request, rating_pk):
+        obj = self.get_object()
+        if not obj:
+            return Response({'detail': 'Rating not found'}, status=status.HTTP_404_NOT_FOUND)
+        if request.user != obj.rater and request.user.role != 'admin':
+            return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _serialize(self, obj):
+        from .serializers import CVRatingSerializer
+        return CVRatingSerializer(obj).data
+
+
+class CVRatingsListView(generics.ListAPIView):
+    """List ratings for a CV. Accessible to admin, teacher, or the CV owner."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            cv = CV.objects.get(pk=pk)
+        except CV.DoesNotExist:
+            return Response({'detail': 'CV not found'}, status=status.HTTP_404_NOT_FOUND)
+        # Allow admin/teacher or the owner to view ratings
+        if request.user.role not in ['admin', 'teacher'] and request.user != cv.owner:
+            return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        qs = cv.ratings.select_related('rater').all()
+        from .serializers import CVRatingSerializer
+        serializer = CVRatingSerializer(qs, many=True)
+        return Response(serializer.data)
+
+class CVDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = CV.objects.select_related('owner').all()
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadForStaffTeacher]
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return CVCreateUpdateSerializer
+        return CVSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ['admin', 'teacher']:
+            return CV.objects.select_related('owner').all()
+        return CV.objects.filter(owner=user)
+
+    def perform_update(self, serializer):
+        # owner cannot be changed via update; ownership enforced
+        serializer.save()
+
+
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def reset_student_password(request, pk):

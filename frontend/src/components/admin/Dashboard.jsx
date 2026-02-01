@@ -35,6 +35,7 @@ import {
   AccountCircle as AccountIcon,
   Logout as LogoutIcon,
   Assignment as TasksIcon,
+  Description as DescriptionIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../../contexts/AuthContext";
 import Home from "./Home";
@@ -48,6 +49,7 @@ import ResultsManagement from "./ResultsManagement";
 import NoticesManagement from "./NoticesManagement";
 import NotesManagement from "./NotesManagement";
 import Tasks from "./Tasks";
+import CVManagement from './CVManagement';
 
 const drawerWidth = 240;
 
@@ -71,6 +73,7 @@ const Dashboard = () => {
     { text: "Results", icon: <GradeIcon />, path: "/admin/results" },
     { text: "Notices", icon: <NoticeIcon />, path: "/admin/notices" },
     { text: "Notes", icon: <NoteIcon />, path: "/admin/notes" },
+    { text: "CVs", icon: <DescriptionIcon />, path: "/admin/cvs" },
   ];
 
   const handleDrawerToggle = () => {
@@ -174,7 +177,7 @@ const Dashboard = () => {
             noWrap
             sx={{ flexGrow: 1, fontWeight: "bold", letterSpacing: 0.5 }}
           >
-            🎓 Student Management System (Admin)
+             Student Management System (Admin)
           </Typography>
 
           <Tooltip title="Profile Menu">
@@ -273,6 +276,7 @@ const Dashboard = () => {
           <Route path="/results" element={<ResultsManagement />} />
           <Route path="/notices" element={<NoticesManagement />} />
           <Route path="/notes" element={<NotesManagement />} />
+          <Route path="/cvs" element={<CVManagement />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </Box>

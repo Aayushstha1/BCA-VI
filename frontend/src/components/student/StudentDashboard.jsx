@@ -33,7 +33,8 @@ import {
   Badge as AdmissionIcon,
   Campaign as NoticesIcon,
   Assignment as TasksIcon,
-  Notifications as NotificationsIcon
+  Notifications as NotificationsIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import StudentHome from './Dashboard';
@@ -48,6 +49,7 @@ import Notices from './Notices';
 import NotificationsList from './NotificationsList';
 import Profile from './Profile';
 import Tasks from './Tasks';
+import MyCVs from './MyCVs';
 import { Wallet } from '@mui/icons-material';
 import { Badge } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
@@ -87,6 +89,7 @@ const StudentDashboard = () => {
     { text: 'Attendance', icon: <AttendanceIcon />, path: '/student/attendance' },
     { text: 'Results', icon: <ResultsIcon />, path: '/student/results' },
     { text: 'Notes', icon: <NotesIcon />, path: '/student/notes' },
+    { text: 'CVs', icon: <DescriptionIcon />, path: '/student/cvs' },
   ];
 
   const handleProfileMenuOpen = (event) => setAnchorEl(event.currentTarget);
@@ -236,6 +239,7 @@ const StudentDashboard = () => {
           <Route path="/profile" element={<Profile />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/report-card" element={<ReportCard />} />
+          <Route path="/cvs" element={<MyCVs />} />
           <Route path="/admission" element={<AdmissionRecords />} />
           <Route path="/notices" element={<Notices />} />
           <Route path="/notifications" element={<NotificationsList />} />

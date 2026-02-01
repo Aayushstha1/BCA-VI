@@ -221,3 +221,103 @@ class StudentProfileUpdateSerializer(serializers.ModelSerializer):
             'profile_picture'
         ]
 
+
+# ------------------ CV Serializers ------------------
+from .models import CV
+
+class CVSerializer(serializers.ModelSerializer):
+    owner = serializers.StringRelatedField(read_only=True)
+    owner_id = serializers.IntegerField(read_only=True, source='owner.id')
+    file_url = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    ratings_count = serializers.SerializerMethodField()
+    user_rating = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CV
+        fields = [
+            'id', 'owner', 'owner_id', 'title', 'summary', 'education', 'experience', 'skills', 'file', 'file_url', 'is_primary', 'created_at', 'updated_at', 'average_rating', 'ratings_count', 'user_rating'
+        ]
+        read_only_fields = ['owner', 'owner_id', 'created_at', 'updated_at']
+
+    def get_file_url(self, obj):
+        try:
+            if obj.file:
+                request = self.context.get('request') if hasattr(self, 'context') else None
+                url = obj.file.url
+                if request:
+                    return request.build_absolute_uri(url)
+                return url
+            return None
+        except Exception:
+            return None
+
+    def get_average_rating(self, obj):
+        try:
+            return obj.average_rating.get('average')
+        except Exception:
+            return None
+
+    def get_ratings_count(self, obj):
+        try:
+            return obj.average_rating.get('count')
+        except Exception:
+            return 0
+
+    def get_user_rating(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return None
+        try:
+            rating = obj.ratings.filter(rater=user).first()
+            if rating:
+                return {'id': rating.id, 'score': rating.score, 'comment': rating.comment}
+            return None
+        except Exception:
+            return None
+    def get_file_url(self, obj):
+        try:
+            if obj.file:
+                request = self.context.get('request') if hasattr(self, 'context') else None
+                url = obj.file.url
+                if request:
+                    return request.build_absolute_uri(url)
+                return url
+            return None
+        except Exception:
+            return None
+
+class CVCreateUpdateSerializer(serializers.ModelSerializer):
+    """Used for create/update to accept file uploads and is_primary flag."""
+    class Meta:
+        model = CV
+        fields = ['title', 'summary', 'education', 'experience', 'skills', 'file', 'is_primary']
+
+
+class CVRatingSerializer(serializers.ModelSerializer):
+    rater = serializers.StringRelatedField(read_only=True)
+    rater_id = serializers.IntegerField(source='rater.id', read_only=True)
+
+    class Meta:
+        from students.cv import CVRating
+        model = CVRating
+        fields = ['id', 'cv', 'rater', 'rater_id', 'score', 'comment', 'created_at', 'updated_at']
+        read_only_fields = ['rater', 'rater_id', 'created_at', 'updated_at']
+
+    def validate_score(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError('Score must be between 1 and 5')
+        return value
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        validated_data['rater'] = user
+        # Enforce rater role should be admin or teacher
+        if user.role not in ['admin', 'teacher']:
+            raise serializers.ValidationError('Only admin or teacher can rate CVs')
+        # Ensure unique per user
+        from students.cv import CVRating
+        obj, created = CVRating.objects.update_or_create(cv=validated_data['cv'], rater=user, defaults={'score': validated_data.get('score'), 'comment': validated_data.get('comment', '')})
+        return obj
+
