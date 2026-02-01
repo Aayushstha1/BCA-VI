@@ -26,6 +26,7 @@ import {
   Logout as LogoutIcon,
   Dashboard as DashboardIcon,
   Class as ClassesIcon,
+  Description as CVIcon,
   Assignment as TasksIcon,
   AssignmentTurnedIn as AttendanceIcon,
   LibraryBooks as LibraryIcon,
@@ -40,6 +41,8 @@ import Attendance from './Attendance';
 import Results from './Results';
 import Notes from './Notes';
 import Library from './Library';
+const TeacherCVs = React.lazy(() => import('./CVs'));
+
 
 const drawerWidth = 220;
 
@@ -55,6 +58,7 @@ const TeacherDashboard = () => {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/teacher' },
     { text: 'Classes', icon: <ClassesIcon />, path: '/teacher/classes' },
     { text: 'Tasks', icon: <TasksIcon />, path: '/teacher/tasks' },
+    { text: 'CVs', icon: <CVIcon />, path: '/teacher/cvs' },
     { text: 'Attendance', icon: <AttendanceIcon />, path: '/teacher/attendance' },
     { text: 'Results', icon: <ResultsIcon />, path: '/teacher/results' },
     { text: 'Notes', icon: <NotesIcon />, path: '/teacher/notes' },
@@ -211,6 +215,7 @@ const TeacherDashboard = () => {
           <Route path="/results" element={<Results />} />
           <Route path="/notes" element={<Notes />} />
           <Route path="/library" element={<Library />} />
+          <Route path="/cvs" element={<React.Suspense fallback={<div>Loading...</div>}><TeacherCVs /></React.Suspense>} />
           <Route path="*" element={<Navigate to="/teacher" replace />} />
         </Routes>
       </Box>
