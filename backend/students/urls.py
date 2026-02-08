@@ -16,6 +16,7 @@ urlpatterns = [
     # CV endpoints
     path('cvs/', views.CVListCreateView.as_view(), name='cv-list-create'),
     path('cvs/<int:pk>/', views.CVDetailView.as_view(), name='cv-detail'),
+    path('cvs/<int:pk>/approve/', views.CVApprovalView.as_view(), name='cv-approval'),
     path('cvs/<int:pk>/rate/', views.CVRatingCreateView.as_view(), name='cv-rate'),
     path('cvs/<int:pk>/ratings/', views.CVRatingsListView.as_view(), name='cv-ratings-list'),
     path('cvs/ratings/<int:rating_pk>/', views.CVRatingDetailView.as_view(), name='cv-rating-detail'),

@@ -21,9 +21,127 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
-import { Edit as EditIcon, PhotoCamera as CameraIcon } from '@mui/icons-material';
+import { Edit as EditIcon, PhotoCamera as CameraIcon, Visibility as VisibilityIcon, Download as DownloadIcon } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
+import { Chip, Grid } from '@mui/material';
+
+// Approved CVs Section Component
+const ApprovedCVsSection = ({ studentId }) => {
+  const [approvedCVs, setApprovedCVs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
+  useEffect(() => {
+    fetchApprovedCVs();
+  }, [studentId]);
+
+  const fetchApprovedCVs = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      const resp = await axios.get(`${API_BASE_URL}/students/cvs/`, {
+        headers: { Authorization: `Token ${token}` }
+      });
+      const results = resp.data.results || resp.data;
+      // Filter only approved CVs
+      const approved = results.filter(cv => cv.approval_status === 'approved');
+      setApprovedCVs(approved);
+    } catch (err) {
+      console.error('Failed to load approved CVs:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <CircularProgress size={24} />;
+  }
+
+  if (approvedCVs.length === 0) {
+    return (
+      <Typography variant="body2" color="textSecondary">
+        No approved CVs yet. Submit a CV and wait for admin/teacher approval.
+      </Typography>
+    );
+  }
+
+  return (
+    <Grid container spacing={2}>
+      {approvedCVs.map((cv) => (
+        <Grid item xs={12} md={6} key={cv.id}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                <Typography variant="h6">{cv.title}</Typography>
+                {cv.is_primary && <Chip label="Primary" color="primary" size="small" />}
+              </Box>
+              {cv.summary && (
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                  {cv.summary}
+                </Typography>
+              )}
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {cv.file_url && (
+                  <>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<VisibilityIcon />}
+                      href={cv.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View CV
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<DownloadIcon />}
+                      href={cv.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download
+                    >
+                      Download
+                    </Button>
+                  </>
+                )}
+                {cv.project_file_url && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    href={cv.project_file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Project File
+                  </Button>
+                )}
+              </Box>
+              {cv.education && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" color="textSecondary">Education</Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                    {cv.education.substring(0, 100)}{cv.education.length > 100 ? '...' : ''}
+                  </Typography>
+                </Box>
+              )}
+              {cv.skills && (
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="subtitle2" color="textSecondary">Skills</Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                    {cv.skills.substring(0, 100)}{cv.skills.length > 100 ? '...' : ''}
+                  </Typography>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      ))}
+    </Grid>
+  );
+};
 
 const Profile = () => {
   const { user } = useAuth();
@@ -451,6 +569,22 @@ const Profile = () => {
             </Card>
           </Box>
         </Box>
+
+        <Divider sx={{ my: 3 }} />
+
+        {/* Approved CVs */}
+        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+          Approved CVs
+        </Typography>
+        <ApprovedCVsSection studentId={student.id} />
+
+        <Divider sx={{ my: 3 }} />
+
+        {/* Approved CVs */}
+        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+          Approved CVs
+        </Typography>
+        <ApprovedCVsSection studentId={student.id} />
 
         <Divider sx={{ my: 3 }} />
 

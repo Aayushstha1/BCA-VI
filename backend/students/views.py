@@ -305,7 +305,8 @@ class CVListCreateView(generics.ListCreateAPIView):
         # use the create/update serializer for validation and file handling
         serializer = CVCreateUpdateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        obj = serializer.save(owner=request.user)
+        # Set approval status to pending for new CVs created by students
+        obj = serializer.save(owner=request.user, approval_status='pending')
         response_serializer = CVSerializer(obj, context={'request': request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -405,7 +406,41 @@ class CVDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         # owner cannot be changed via update; ownership enforced
-        serializer.save()
+        # Reset approval status if CV is updated by student
+        if self.request.user.role == 'student':
+            serializer.save(approval_status='pending', approved_by=None, approved_at=None, rejection_reason='')
+        else:
+            serializer.save()
+
+
+class CVApprovalView(generics.UpdateAPIView):
+    """Admin/Teacher can approve or reject CVs"""
+    queryset = CV.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CVSerializer
+
+    def update(self, request, *args, **kwargs):
+        if request.user.role not in ['admin', 'teacher']:
+            return Response({'detail': 'Only admin or teacher can approve/reject CVs'}, 
+                          status=status.HTTP_403_FORBIDDEN)
+        
+        cv = self.get_object()
+        approval_status = request.data.get('approval_status')
+        rejection_reason = request.data.get('rejection_reason', '')
+        
+        if approval_status not in ['approved', 'rejected']:
+            return Response({'detail': 'Invalid approval status'}, 
+                          status=status.HTTP_400_BAD_REQUEST)
+        
+        from django.utils import timezone
+        cv.approval_status = approval_status
+        cv.approved_by = request.user if approval_status == 'approved' else None
+        cv.approved_at = timezone.now() if approval_status == 'approved' else None
+        cv.rejection_reason = rejection_reason if approval_status == 'rejected' else ''
+        cv.save()
+        
+        serializer = self.get_serializer(cv)
+        return Response(serializer.data)
 
 
 @api_view(['POST'])

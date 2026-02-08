@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Typography, Paper, Table, TableHead, TableBody, TableRow, TableCell, Button, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert } from '@mui/material';
+import { Box, Container, Typography, Paper, Table, TableHead, TableBody, TableRow, TableCell, Button, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert, Chip, Tabs, Tab } from '@mui/material';
+import { CheckCircle as CheckCircleIcon, Cancel as CancelIcon, Pending as PendingIcon } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -16,6 +17,11 @@ const TeacherCVs = () => {
   const [ratingTarget, setRatingTarget] = useState(null);
   const [ratingScore, setRatingScore] = useState(5);
   const [ratingComment, setRatingComment] = useState('');
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [approvalTarget, setApprovalTarget] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [approving, setApproving] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
 
   useEffect(() => { fetchCVs(); }, []);
 
@@ -57,6 +63,59 @@ const TeacherCVs = () => {
     }
   };
 
+  const handleApprove = async (cv, status) => {
+    setApprovalTarget(cv);
+    if (status === 'rejected') {
+      setApprovalDialogOpen(true);
+    } else {
+      await submitApproval(cv.id, 'approved', '');
+    }
+  };
+
+  const submitApproval = async (cvId, status, reason) => {
+    try {
+      setApproving(true);
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      await axios.patch(`${API_BASE_URL}/students/cvs/${cvId}/approve/`, {
+        approval_status: status,
+        rejection_reason: reason
+      }, { headers: { Authorization: `Token ${token}` } });
+      setApprovalDialogOpen(false);
+      setRejectionReason('');
+      setApprovalTarget(null);
+      fetchCVs();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to update approval status');
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const getStatusChip = (status) => {
+    const statusConfig = {
+      pending: { color: 'warning', icon: <PendingIcon />, label: 'Pending' },
+      approved: { color: 'success', icon: <CheckCircleIcon />, label: 'Approved' },
+      rejected: { color: 'error', icon: <CancelIcon />, label: 'Rejected' },
+    };
+    const config = statusConfig[status] || statusConfig.pending;
+    return (
+      <Chip 
+        icon={config.icon} 
+        label={config.label} 
+        color={config.color} 
+        size="small" 
+      />
+    );
+  };
+
+  const filteredCVs = () => {
+    if (tabValue === 0) return cvs; // All
+    if (tabValue === 1) return cvs.filter(cv => cv.approval_status === 'pending');
+    if (tabValue === 2) return cvs.filter(cv => cv.approval_status === 'approved');
+    if (tabValue === 3) return cvs.filter(cv => cv.approval_status === 'rejected');
+    return cvs;
+  };
+
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}><CircularProgress /></Box>;
 
   return (
@@ -64,30 +123,86 @@ const TeacherCVs = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Student CVs</Typography>
+        
+        <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 2 }}>
+          <Tab label="All" />
+          <Tab label="Pending" />
+          <Tab label="Approved" />
+          <Tab label="Rejected" />
+        </Tabs>
+
         <Table>
           <TableHead>
             <TableRow>
               <TableCell>Student</TableCell>
               <TableCell>Title</TableCell>
+              <TableCell>Status</TableCell>
               <TableCell>Summary</TableCell>
               <TableCell>File</TableCell>
-              <TableCell>Avg</TableCell>
+              <TableCell>Project File</TableCell>
+              <TableCell>Avg Rating</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {cvs.map((cv) => (
-              <TableRow key={cv.id}>
-                <TableCell>{cv.owner}</TableCell>
-                <TableCell>{cv.title}{cv.is_primary ? ' (Primary)' : ''}</TableCell>
-                <TableCell>{cv.summary}</TableCell>
-                <TableCell>{cv.file_url ? <Button href={cv.file_url} target="_blank">Download</Button> : '—'} {cv.file_url && <Button size="small" onClick={() => openPreview(cv.file_url)} sx={{ ml: 1 }}>Preview</Button>}</TableCell>
-                <TableCell>{cv.average_rating ? cv.average_rating.toFixed(1) : '—'}</TableCell>
-                <TableCell>
-                  <Button size="small" onClick={() => openRating(cv)}>Rate</Button>
+            {filteredCVs().length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center">
+                  <Typography color="textSecondary">No CVs found</Typography>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredCVs().map((cv) => (
+                <TableRow key={cv.id}>
+                  <TableCell>{cv.owner}</TableCell>
+                  <TableCell>
+                    {cv.title}
+                    {cv.is_primary && <Chip label="Primary" color="primary" size="small" sx={{ ml: 1 }} />}
+                  </TableCell>
+                  <TableCell>{getStatusChip(cv.approval_status)}</TableCell>
+                  <TableCell>{cv.summary || '—'}</TableCell>
+                  <TableCell>
+                    {cv.file_url ? (
+                      <Box>
+                        <Button size="small" href={cv.file_url} target="_blank">Download</Button>
+                        <Button size="small" variant="outlined" sx={{ ml: 1 }} onClick={() => openPreview(cv.file_url)}>Preview</Button>
+                      </Box>
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell>
+                    {cv.project_file_url ? (
+                      <Button size="small" href={cv.project_file_url} target="_blank">View Project</Button>
+                    ) : '—'}
+                  </TableCell>
+                  <TableCell>{cv.average_rating ? cv.average_rating.toFixed(1) : '—'}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {cv.approval_status === 'pending' && (
+                        <>
+                          <Button 
+                            size="small" 
+                            color="success" 
+                            startIcon={<CheckCircleIcon />}
+                            onClick={() => handleApprove(cv, 'approved')}
+                          >
+                            Approve
+                          </Button>
+                          <Button 
+                            size="small" 
+                            color="error" 
+                            startIcon={<CancelIcon />}
+                            onClick={() => handleApprove(cv, 'rejected')}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      <Button size="small" onClick={() => openRating(cv)}>Rate</Button>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </Paper>
@@ -118,6 +233,35 @@ const TeacherCVs = () => {
         <DialogActions>
           <Button onClick={() => setRatingOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={submitRating}>Submit</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={approvalDialogOpen} onClose={() => { setApprovalDialogOpen(false); setRejectionReason(''); }} fullWidth maxWidth="sm">
+        <DialogTitle>Reject CV</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Please provide a reason for rejecting this CV:
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Rejection Reason"
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            placeholder="Enter the reason for rejection..."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setApprovalDialogOpen(false); setRejectionReason(''); }}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            onClick={() => approvalTarget && submitApproval(approvalTarget.id, 'rejected', rejectionReason)}
+            disabled={!rejectionReason.trim() || approving}
+          >
+            {approving ? 'Rejecting...' : 'Reject CV'}
+          </Button>
         </DialogActions>
       </Dialog>
 

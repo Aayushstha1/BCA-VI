@@ -229,16 +229,22 @@ class CVSerializer(serializers.ModelSerializer):
     owner = serializers.StringRelatedField(read_only=True)
     owner_id = serializers.IntegerField(read_only=True, source='owner.id')
     file_url = serializers.SerializerMethodField()
+    project_file_url = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     ratings_count = serializers.SerializerMethodField()
     user_rating = serializers.SerializerMethodField()
+    approved_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CV
         fields = [
-            'id', 'owner', 'owner_id', 'title', 'summary', 'education', 'experience', 'skills', 'file', 'file_url', 'is_primary', 'created_at', 'updated_at', 'average_rating', 'ratings_count', 'user_rating'
+            'id', 'owner', 'owner_id', 'title', 'summary', 'education', 'experience', 'skills', 
+            'projects', 'certifications', 'languages', 'hobbies', 'file', 'file_url', 
+            'project_file', 'project_file_url', 'approval_status', 'approved_by', 'approved_by_name',
+            'approved_at', 'rejection_reason', 'is_primary', 'created_at', 'updated_at', 
+            'average_rating', 'ratings_count', 'user_rating'
         ]
-        read_only_fields = ['owner', 'owner_id', 'created_at', 'updated_at']
+        read_only_fields = ['owner', 'owner_id', 'approved_by', 'approved_at', 'created_at', 'updated_at']
 
     def get_file_url(self, obj):
         try:
@@ -276,23 +282,30 @@ class CVSerializer(serializers.ModelSerializer):
             return None
         except Exception:
             return None
-    def get_file_url(self, obj):
+    
+    def get_project_file_url(self, obj):
         try:
-            if obj.file:
+            if obj.project_file:
                 request = self.context.get('request') if hasattr(self, 'context') else None
-                url = obj.file.url
+                url = obj.project_file.url
                 if request:
                     return request.build_absolute_uri(url)
                 return url
             return None
         except Exception:
             return None
+    
+    def get_approved_by_name(self, obj):
+        if obj.approved_by:
+            return obj.approved_by.get_full_name() or obj.approved_by.username
+        return None
 
 class CVCreateUpdateSerializer(serializers.ModelSerializer):
     """Used for create/update to accept file uploads and is_primary flag."""
     class Meta:
         model = CV
-        fields = ['title', 'summary', 'education', 'experience', 'skills', 'file', 'is_primary']
+        fields = ['title', 'summary', 'education', 'experience', 'skills', 'projects', 
+                  'certifications', 'languages', 'hobbies', 'file', 'project_file', 'is_primary']
 
 
 class CVRatingSerializer(serializers.ModelSerializer):

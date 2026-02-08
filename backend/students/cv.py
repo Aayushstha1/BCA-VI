@@ -6,13 +6,28 @@ User = get_user_model()
 
 class CV(models.Model):
     """Curriculum Vitae created by a student, visible to admin and teachers (read-only for them)."""
+    APPROVAL_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cvs')
     title = models.CharField(max_length=255)
     summary = models.TextField(blank=True)
     education = models.TextField(blank=True)
     experience = models.TextField(blank=True)
     skills = models.TextField(blank=True)
+    projects = models.TextField(blank=True, help_text="Project descriptions and details")
+    certifications = models.TextField(blank=True, help_text="Certifications and achievements")
+    languages = models.TextField(blank=True, help_text="Languages known")
+    hobbies = models.TextField(blank=True, help_text="Hobbies and interests")
     file = models.FileField(upload_to='cvs/', null=True, blank=True)
+    project_file = models.FileField(upload_to='cvs/projects/', null=True, blank=True, help_text="Project file/document")
+    approval_status = models.CharField(max_length=20, choices=APPROVAL_STATUS_CHOICES, default='pending')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_cvs')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, help_text="Reason for rejection if rejected")
     is_primary = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -27,6 +42,9 @@ class CV(models.Model):
         # Ensure only one primary CV per owner
         if self.is_primary:
             CV.objects.filter(owner=self.owner, is_primary=True).exclude(pk=self.pk).update(is_primary=False)
+        # Only approved CVs can be set as primary
+        if self.is_primary and self.approval_status != 'approved':
+            self.is_primary = False
         super().save(*args, **kwargs)
 
 
