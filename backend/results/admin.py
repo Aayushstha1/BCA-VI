@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Exam, Result, AcademicYear, Semester
+from .models import Exam, Result, AcademicYear, Semester, ClassSubjectAssignment
 
 
 @admin.register(AcademicYear)
@@ -52,3 +52,10 @@ class ResultAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related(
             'student__user', 'exam__subject'
         )
+
+
+@admin.register(ClassSubjectAssignment)
+class ClassSubjectAssignmentAdmin(admin.ModelAdmin):
+    list_display = ('class_name', 'section', 'subject', 'teacher', 'is_active', 'created_at')
+    list_filter = ('class_name', 'section', 'is_active', 'subject')
+    search_fields = ('class_name', 'section', 'subject__name', 'teacher__user__first_name', 'teacher__user__last_name')

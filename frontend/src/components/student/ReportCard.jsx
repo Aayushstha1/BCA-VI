@@ -1,15 +1,20 @@
 import React from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableHead, TableRow, Chip } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableHead, TableRow, Chip, CircularProgress, Alert } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 
 const ReportCard = () => {
-  const rows = [
-    { code: 'MTH101', name: 'Mathematics I', credits: 4, grade: 'A' },
-    { code: 'PHY101', name: 'Physics', credits: 4, grade: 'B+' },
-    { code: 'CSE101', name: 'Programming Basics', credits: 3, grade: 'A+' },
-    { code: 'ENG101', name: 'English', credits: 2, grade: 'A' },
-  ];
+  const { data: results, isLoading, isError } = useQuery({
+    queryKey: ['report-card-results'],
+    queryFn: async () => {
+      const res = await axios.get('/results/');
+      const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+      return list;
+    },
+  });
 
   const gradeColor = (g) => {
+    if (!g) return 'default';
     switch (g) {
       case 'A+':
       case 'A':
@@ -27,27 +32,45 @@ const ReportCard = () => {
       <Typography variant="h4" sx={{ mb: 3 }}>
         Report Card
       </Typography>
+      {isLoading && (
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="30vh">
+          <CircularProgress />
+        </Box>
+      )}
+      {isError && (
+        <Alert severity="error" sx={{ mb: 2 }}>Failed to load report card.</Alert>
+      )}
       <Paper sx={{ p: 2 }}>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Course Code</TableCell>
-              <TableCell>Course Name</TableCell>
-              <TableCell>Credits</TableCell>
+              <TableCell>Subject Code</TableCell>
+              <TableCell>Subject</TableCell>
+              <TableCell>Exam</TableCell>
+              <TableCell>Marks</TableCell>
               <TableCell>Grade</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows.map((r) => (
-              <TableRow key={r.code}>
-                <TableCell>{r.code}</TableCell>
-                <TableCell>{r.name}</TableCell>
-                <TableCell>{r.credits}</TableCell>
-                <TableCell>
-                  <Chip label={r.grade} color={gradeColor(r.grade)} size="small" />
+            {(results || []).length === 0 && !isLoading ? (
+              <TableRow>
+                <TableCell colSpan={5}>
+                  <Typography variant="body2" color="text.secondary">No approved results available yet.</Typography>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              (results || []).map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>{r.subject_code || '-'}</TableCell>
+                  <TableCell>{r.subject_name || '-'}</TableCell>
+                  <TableCell>{r.exam_name || r.exam}</TableCell>
+                  <TableCell>{r.marks_obtained}{r.total_marks ? `/${r.total_marks}` : ''}</TableCell>
+                  <TableCell>
+                    <Chip label={r.grade || '-'} color={gradeColor(r.grade)} size="small" />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </Paper>

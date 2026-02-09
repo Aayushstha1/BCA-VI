@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Routes, Route, Navigate, useLocation, Link } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, Link, useNavigate } from "react-router-dom";
 import {
   Box,
   AppBar,
@@ -36,6 +36,8 @@ import {
   Logout as LogoutIcon,
   Assignment as TasksIcon,
   Description as DescriptionIcon,
+  PhotoLibrary as GalleryIcon,
+  MenuBook as SubjectsIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../../contexts/AuthContext";
 import Home from "./Home";
@@ -46,10 +48,12 @@ import AttendanceManagement from "./AttendanceManagement";
 import HostelManagement from "./HostelManagement";
 import LibraryManagement from "./LibraryManagement";
 import ResultsManagement from "./ResultsManagement";
+import ClassSubjectsManagement from "./ClassSubjectsManagement";
 import NoticesManagement from "./NoticesManagement";
 import NotesManagement from "./NotesManagement";
 import Tasks from "./Tasks";
 import CVManagement from './CVManagement';
+import Gallery from "../Gallery";
 
 const drawerWidth = 240;
 
@@ -60,6 +64,7 @@ const Dashboard = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const menuItems = [
     { text: "Dashboard", icon: <DashboardIcon />, path: "/admin" },
@@ -71,8 +76,10 @@ const Dashboard = () => {
     { text: "Hostel", icon: <HomeIcon />, path: "/admin/hostel" },
     { text: "Library", icon: <LibraryIcon />, path: "/admin/library" },
     { text: "Results", icon: <GradeIcon />, path: "/admin/results" },
+    { text: "Class Subjects", icon: <SubjectsIcon />, path: "/admin/class-subjects" },
     { text: "Notices", icon: <NoticeIcon />, path: "/admin/notices" },
     { text: "Notes", icon: <NoteIcon />, path: "/admin/notes" },
+    { text: "Gallery", icon: <GalleryIcon />, path: "/admin/gallery" },
     { text: "CVs", icon: <DescriptionIcon />, path: "/admin/cvs" },
   ];
 
@@ -88,9 +95,10 @@ const Dashboard = () => {
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
     handleProfileMenuClose();
+    navigate("/", { replace: true });
+    await logout();
   };
 
   const drawer = (
@@ -274,8 +282,10 @@ const Dashboard = () => {
           <Route path="/hostel" element={<HostelManagement />} />
           <Route path="/library" element={<LibraryManagement />} />
           <Route path="/results" element={<ResultsManagement />} />
+          <Route path="/class-subjects" element={<ClassSubjectsManagement />} />
           <Route path="/notices" element={<NoticesManagement />} />
           <Route path="/notes" element={<NotesManagement />} />
+          <Route path="/gallery" element={<Gallery />} />
           <Route path="/cvs" element={<CVManagement />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>

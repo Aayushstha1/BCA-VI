@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -32,6 +32,7 @@ import {
   LibraryBooks as LibraryIcon,
   Grade as ResultsIcon,
   Note as NotesIcon,
+  PhotoLibrary as GalleryIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import TeacherHome from './Dashboard';
@@ -41,6 +42,7 @@ import Attendance from './Attendance';
 import Results from './Results';
 import Notes from './Notes';
 import Library from './Library';
+import Gallery from '../Gallery';
 const TeacherCVs = React.lazy(() => import('./CVs'));
 
 
@@ -51,6 +53,7 @@ const TeacherDashboard = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -62,14 +65,16 @@ const TeacherDashboard = () => {
     { text: 'Attendance', icon: <AttendanceIcon />, path: '/teacher/attendance' },
     { text: 'Results', icon: <ResultsIcon />, path: '/teacher/results' },
     { text: 'Notes', icon: <NotesIcon />, path: '/teacher/notes' },
+    { text: 'Gallery', icon: <GalleryIcon />, path: '/teacher/gallery' },
     { text: 'Library', icon: <LibraryIcon />, path: '/teacher/library' },
   ];
 
   const handleProfileMenuOpen = (event) => setAnchorEl(event.currentTarget);
   const handleProfileMenuClose = () => setAnchorEl(null);
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
     handleProfileMenuClose();
+    navigate('/', { replace: true });
+    await logout();
   };
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
@@ -214,6 +219,7 @@ const TeacherDashboard = () => {
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/results" element={<Results />} />
           <Route path="/notes" element={<Notes />} />
+          <Route path="/gallery" element={<Gallery />} />
           <Route path="/library" element={<Library />} />
           <Route path="/cvs" element={<React.Suspense fallback={<div>Loading...</div>}><TeacherCVs /></React.Suspense>} />
           <Route path="*" element={<Navigate to="/teacher" replace />} />

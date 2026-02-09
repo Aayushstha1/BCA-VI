@@ -3,6 +3,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils.dateparse import parse_date
+from django.utils import timezone
+from django.db.models import Count, Q
+from django.db.models.functions import ExtractMonth
 from django.shortcuts import get_object_or_404
 from .models import Subject, Attendance, AttendanceReport, AttendanceSession
 from students.models import Student
@@ -114,3 +117,95 @@ class MarkAttendanceView(APIView):
         )
 
         return Response(AttendanceSerializer(attendance).data, status=status.HTTP_201_CREATED)
+
+
+class StudentYearlyProgressView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'student':
+            return Response({'detail': 'Only students can view their yearly progress.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            student = Student.objects.get(user=request.user)
+        except Student.DoesNotExist:
+            return Response({'detail': 'Student profile not found.'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        year_param = request.query_params.get('year')
+        try:
+            year = int(year_param) if year_param else timezone.now().year
+        except ValueError:
+            return Response({'detail': 'Invalid year.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = Attendance.objects.filter(student=student, date__year=year)
+        monthly = (
+            qs.annotate(month=ExtractMonth('date'))
+            .values('month')
+            .annotate(
+                total_days=Count('id'),
+                present_days=Count('id', filter=Q(status__in=['present', 'late']))
+            )
+        )
+
+        month_stats = {item['month']: item for item in monthly}
+        data = []
+        for month in range(1, 13):
+            item = month_stats.get(month, {'total_days': 0, 'present_days': 0})
+            total_days = item.get('total_days', 0) or 0
+            present_days = item.get('present_days', 0) or 0
+            progress = round((present_days / total_days) * 100, 2) if total_days > 0 else 0
+            data.append({
+                'month': month,
+                'total_days': total_days,
+                'present_days': present_days,
+                'progress': progress,
+            })
+
+        return Response({'year': year, 'data': data}, status=status.HTTP_200_OK)
+
+
+class StudentMonthlyProgressView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'student':
+            return Response({'detail': 'Only students can view their monthly progress.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            student = Student.objects.get(user=request.user)
+        except Student.DoesNotExist:
+            return Response({'detail': 'Student profile not found.'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        year_param = request.query_params.get('year')
+        month_param = request.query_params.get('month')
+        try:
+            year = int(year_param) if year_param else timezone.now().year
+            month = int(month_param) if month_param else timezone.now().month
+        except ValueError:
+            return Response({'detail': 'Invalid year or month.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if month < 1 or month > 12:
+            return Response({'detail': 'Month must be between 1 and 12.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = Attendance.objects.filter(student=student, date__year=year, date__month=month)
+        total_days = qs.count()
+        present_days = qs.filter(status='present').count()
+        late_days = qs.filter(status='late').count()
+        absent_days = qs.filter(status='absent').count()
+        excused_days = qs.filter(status='excused').count()
+        progress = round(((present_days + late_days) / total_days) * 100, 2) if total_days > 0 else 0
+
+        return Response({
+            'year': year,
+            'month': month,
+            'total_days': total_days,
+            'present_days': present_days,
+            'late_days': late_days,
+            'absent_days': absent_days,
+            'excused_days': excused_days,
+            'progress': progress,
+        }, status=status.HTTP_200_OK)

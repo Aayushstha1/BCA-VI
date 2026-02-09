@@ -9,6 +9,8 @@ urlpatterns = [
     path('', views.AttendanceListCreateView.as_view(), name='attendance-list-create'),
     path('<int:pk>/', views.AttendanceDetailView.as_view(), name='attendance-detail'),
     path('reports/', views.AttendanceReportListCreateView.as_view(), name='attendance-report-list-create'),
+    path('progress/yearly/', views.StudentYearlyProgressView.as_view(), name='attendance-yearly-progress'),
+    path('progress/monthly/', views.StudentMonthlyProgressView.as_view(), name='attendance-monthly-progress'),
     path('sessions/', views.AttendanceSessionListCreateView.as_view(), name='attendance-session-list-create'),
     path('mark/', views.MarkAttendanceView.as_view(), name='mark-attendance'),
 ]

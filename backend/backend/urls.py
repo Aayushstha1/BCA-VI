@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/notices/', include('notices.urls')),
     path('api/notes/', include('notes.urls')),
     path('api/tasks/', include('tasks.urls')),
+    path('api/gallery/', include('gallery.urls')),
 ]
 
 # Serve media files during development

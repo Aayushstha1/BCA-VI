@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -35,6 +35,7 @@ import {
   Assignment as TasksIcon,
   Notifications as NotificationsIcon,
   Description as DescriptionIcon,
+  PhotoLibrary as GalleryIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import StudentHome from './Dashboard';
@@ -50,6 +51,7 @@ import NotificationsList from './NotificationsList';
 import Profile from './Profile';
 import Tasks from './Tasks';
 import MyCVs from './MyCVs';
+import Gallery from '../Gallery';
 import { Wallet } from '@mui/icons-material';
 import { Badge } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
@@ -62,6 +64,7 @@ const StudentDashboard = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -84,6 +87,7 @@ const StudentDashboard = () => {
     { text: 'Admission', icon: <AdmissionIcon />, path: '/student/admission' },
     { text: 'Notices', icon: <NoticesIcon />, path: '/student/notices' },
     { text: 'Notifications', icon: <Badge badgeContent={unread} color="error"><NotificationsIcon /></Badge>, path: '/student/notifications' },
+    { text: 'Gallery', icon: <GalleryIcon />, path: '/student/gallery' },
     { text: 'Library', icon: <LibraryIcon />, path: '/student/library' },
     { text: 'Finance', icon: <Wallet />, path: '/student/finance' },
     { text: 'Attendance', icon: <AttendanceIcon />, path: '/student/attendance' },
@@ -94,9 +98,10 @@ const StudentDashboard = () => {
 
   const handleProfileMenuOpen = (event) => setAnchorEl(event.currentTarget);
   const handleProfileMenuClose = () => setAnchorEl(null);
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
     handleProfileMenuClose();
+    navigate('/', { replace: true });
+    await logout();
   };
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
@@ -243,6 +248,7 @@ const StudentDashboard = () => {
           <Route path="/admission" element={<AdmissionRecords />} />
           <Route path="/notices" element={<Notices />} />
           <Route path="/notifications" element={<NotificationsList />} />
+          <Route path="/gallery" element={<Gallery />} />
           <Route path="/library" element={<Library />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/finance" element={<Finance />} />

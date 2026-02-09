@@ -1,9 +1,22 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Typography, Grid, Paper, List, ListItem, ListItemText, Divider, Button, Link, CircularProgress } from '@mui/material';
 import { Assessment, LibraryBooks, Grade, Wallet, School, Note, Campaign } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from 'recharts';
 
 const StatCard = ({ icon, label, value, color, to }) => {
   return (
@@ -47,6 +60,10 @@ const StatCard = ({ icon, label, value, color, to }) => {
 };
 
 const StudentHome = () => {
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
   const cards = [
     { icon: <Assessment />, label: 'Attendance (This Month)', value: '—', color: 'primary', to: '/student/attendance' },
     { icon: <Grade />, label: 'CGPA', value: '—', color: 'success', to: '/student/results' },
@@ -64,6 +81,78 @@ const StudentHome = () => {
     },
   });
 
+  const {
+    data: progressResponse,
+    isLoading: isProgressLoading,
+    error: progressError,
+  } = useQuery({
+    queryKey: ['attendance-progress', currentYear],
+    queryFn: async () => {
+      const response = await axios.get(`attendance/progress/yearly/?year=${currentYear}`);
+      return response.data;
+    },
+  });
+
+  const {
+    data: monthlyResponse,
+    isLoading: isMonthlyLoading,
+    error: monthlyError,
+  } = useQuery({
+    queryKey: ['attendance-progress-monthly', currentYear, currentMonth],
+    queryFn: async () => {
+      const response = await axios.get(`attendance/progress/monthly/?year=${currentYear}&month=${currentMonth}`);
+      return response.data;
+    },
+  });
+
+  const yearlyProgressData = useMemo(() => {
+    const base = monthLabels.map((label, index) => ({
+      month: label,
+      progress: 0,
+      total_days: 0,
+      present_days: 0,
+      month_index: index + 1,
+    }));
+
+    if (!progressResponse?.data) return base;
+    const byMonth = new Map(progressResponse.data.map((item) => [item.month, item]));
+    return base.map((entry) => {
+      const monthData = byMonth.get(entry.month_index);
+      if (!monthData) return entry;
+      return {
+        ...entry,
+        progress: Math.round(monthData.progress || 0),
+        total_days: monthData.total_days || 0,
+        present_days: monthData.present_days || 0,
+      };
+    });
+  }, [progressResponse, monthLabels]);
+
+  const averageProgress = useMemo(() => {
+    if (!yearlyProgressData.length) return 0;
+    const total = yearlyProgressData.reduce((sum, item) => sum + item.progress, 0);
+    return Math.round(total / yearlyProgressData.length);
+  }, [yearlyProgressData]);
+
+  const monthlyPieData = useMemo(() => {
+    if (!monthlyResponse) return [];
+    const present = monthlyResponse.present_days || 0;
+    const late = monthlyResponse.late_days || 0;
+    const absent = monthlyResponse.absent_days || 0;
+    const excused = monthlyResponse.excused_days || 0;
+    const data = [
+      { name: 'Present', value: present },
+      { name: 'Late', value: late },
+      { name: 'Absent', value: absent },
+      { name: 'Excused', value: excused },
+    ];
+    return data.filter((d) => d.value > 0);
+  }, [monthlyResponse]);
+
+  const monthlyProgressPercent = Math.round(monthlyResponse?.progress || 0);
+  const monthlyTotalDays = monthlyResponse?.total_days || 0;
+  const monthLabel = monthLabels[currentMonth - 1];
+
   return (
     <Box>
       <Typography variant="h4" sx={{ mb: 3 }}>
@@ -75,6 +164,102 @@ const StudentHome = () => {
             <StatCard {...card} />
           </Grid>
         ))}
+      </Grid>
+
+      <Grid container spacing={2} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={8}>
+          <Paper sx={{ p: 2 }}>
+            <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+              <Box>
+                <Typography variant="h6">Yearly Progress ({currentYear})</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Monthly progress trend for the academic year
+                </Typography>
+              </Box>
+              <Typography variant="h6" color="primary">
+                Avg: {averageProgress}%
+              </Typography>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+            {progressError ? (
+              <Typography color="error" sx={{ py: 2 }}>
+                Failed to load yearly progress.
+              </Typography>
+            ) : isProgressLoading ? (
+              <Box display="flex" justifyContent="center" p={2}>
+                <CircularProgress size={30} />
+              </Box>
+            ) : (
+              <Box sx={{ width: '100%', height: 260 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={yearlyProgressData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis domain={[0, 100]} />
+                    <RechartsTooltip
+                      formatter={(value) => [`${value}%`, 'Progress']}
+                      labelFormatter={(label) => `Month: ${label}`}
+                    />
+                    <Line type="monotone" dataKey="progress" stroke="#1976d2" strokeWidth={3} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 2, height: '100%' }}>
+            <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+              <Box>
+                <Typography variant="h6">Monthly Progress</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {monthLabel} {currentYear} â€¢ {monthlyTotalDays} days
+                </Typography>
+              </Box>
+              <Typography variant="h6" color="primary">
+                {monthlyProgressPercent}%
+              </Typography>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+            {monthlyError ? (
+              <Typography color="error" sx={{ py: 2 }}>
+                Failed to load monthly progress.
+              </Typography>
+            ) : isMonthlyLoading ? (
+              <Box display="flex" justifyContent="center" p={2}>
+                <CircularProgress size={30} />
+              </Box>
+            ) : monthlyPieData.length === 0 ? (
+              <Typography color="text.secondary" sx={{ py: 2 }}>
+                No attendance data for this month.
+              </Typography>
+            ) : (
+              <Box sx={{ width: '100%', height: 240 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={monthlyPieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={80}
+                      paddingAngle={2}
+                    >
+                      {monthlyPieData.map((entry, index) => {
+                        const colors = ['#2e7d32', '#ffb300', '#d32f2f', '#6d4c41'];
+                        return <Cell key={`cell-${entry.name}`} fill={colors[index % colors.length]} />;
+                      })}
+                    </Pie>
+                    <Legend verticalAlign="bottom" height={36} />
+                    <RechartsTooltip formatter={(value, name) => [`${value}`, name]} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
       </Grid>
 
       <Grid container spacing={2} sx={{ mt: 1 }}>

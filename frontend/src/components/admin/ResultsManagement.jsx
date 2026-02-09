@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -28,6 +29,7 @@ import {
   CheckCircle as ApproveIcon,
   Cancel as RejectIcon,
   Visibility as ViewIcon,
+  MenuBook as SubjectsIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -75,13 +77,15 @@ const ResultsManagement = () => {
       pending.forEach((result) => {
         const examId = result.exam || 'unknown';
         const studentClass = result.student_class || 'unknown';
-        const key = `${examId}-${studentClass}`;
+        const studentSection = result.student_section || '';
+        const key = `${examId}-${studentClass}-${studentSection}`;
         
         if (!grouped[key]) {
           grouped[key] = {
             examId,
             examName: result.exam_name || `Exam ${examId}`,
             class: studentClass,
+            section: studentSection,
             results: [],
             subjects: new Set(),
             students: new Set(),
@@ -112,13 +116,15 @@ const ResultsManagement = () => {
       approved.forEach((result) => {
         const examId = result.exam || 'unknown';
         const studentClass = result.student_class || 'unknown';
-        const key = `${examId}-${studentClass}`;
+        const studentSection = result.student_section || '';
+        const key = `${examId}-${studentClass}-${studentSection}`;
         
         if (!grouped[key]) {
           grouped[key] = {
             examId,
             examName: result.exam_name || `Exam ${examId}`,
             class: studentClass,
+            section: studentSection,
             results: [],
             subjects: new Set(),
             students: new Set(),
@@ -141,6 +147,7 @@ const ResultsManagement = () => {
       const payload = {
         exam: selectedClassResults.examId,
         class: selectedClassResults.class,
+        section: selectedClassResults.section || '',
         action,
       };
       if (approvalRemarks) {
@@ -209,13 +216,23 @@ const ResultsManagement = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ mb: 1 }}>
-          Results Management
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Review and approve class results submissions
-        </Typography>
+      <Box sx={{ mb: 3 }} display="flex" alignItems="center" justifyContent="space-between">
+        <Box>
+          <Typography variant="h4" sx={{ mb: 1 }}>
+            Results Management
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Review and approve class results submissions
+          </Typography>
+        </Box>
+        <Button
+          variant="outlined"
+          startIcon={<SubjectsIcon />}
+          component={RouterLink}
+          to="/admin/class-subjects"
+        >
+          Class Subjects
+        </Button>
       </Box>
 
       {error && (
@@ -256,7 +273,7 @@ const ResultsManagement = () => {
                       <Box display="flex" justifyContent="space-between" alignItems="start" sx={{ mb: 2 }}>
                         <Box>
                           <Typography variant="h6">
-                            {group.examName} - Class {group.class}
+                            {group.examName} - Class {group.class}{group.section ? ` ${group.section}` : ''}
                           </Typography>
                           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                             <strong>Students:</strong> {group.students.size} | <strong>Subjects:</strong>{' '}
@@ -364,15 +381,14 @@ const ResultsManagement = () => {
                       <Box display="flex" justifyContent="space-between" alignItems="start" sx={{ mb: 2 }}>
                         <Box>
                           <Typography variant="h6">
-                            {group.examName} - Class {group.class}
+                            {group.examName} - Class {group.class}{group.section ? ` ${group.section}` : ''}
                           </Typography>
                           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                             <strong>Students:</strong> {group.students.size} | <strong>Subjects:</strong>{' '}
                             {group.subjects.size}
                           </Typography>
                           <Typography variant="caption" color="success.main" sx={{ display: 'block', mt: 1 }}>
-                            ✓ Approved by {group.approvedBy} on{' '}
-                            {new Date(group.approvedAt).toLocaleDateString()}
+                            Approved by {group.approvedBy} on {new Date(group.approvedAt).toLocaleDateString()}
                           </Typography>
                           <Box sx={{ mt: 1 }}>
                             {Array.from(group.subjects).map((subject) => (
@@ -447,8 +463,8 @@ const ResultsManagement = () => {
             <Box sx={{ mt: 2 }}>
               <Alert severity={dialogMode === 'approve' ? 'success' : 'error'} sx={{ mb: 2 }}>
                 {dialogMode === 'approve'
-                  ? `Approve ${selectedClassResults.students.size} students' results for Class ${selectedClassResults.class}?`
-                  : `Reject and request revision for Class ${selectedClassResults.class} results?`}
+                  ? `Approve ${selectedClassResults.students.size} students' results for Class ${selectedClassResults.class}${selectedClassResults.section ? ` ${selectedClassResults.section}` : ''}?`
+                  : `Reject and request revision for Class ${selectedClassResults.class}${selectedClassResults.section ? ` ${selectedClassResults.section}` : ''} results?`}
               </Alert>
 
               {dialogMode === 'reject' && (

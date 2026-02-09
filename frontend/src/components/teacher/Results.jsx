@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -40,13 +40,16 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 
 const TeacherResults = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   
   // States
-  const [step, setStep] = useState(0); // 0: Select Class & Exams, 1: Add Student Marks
+  const [step, setStep] = useState(0); // 0: Select Class & Subjects, 1: Add Student Marks
   const [selectedClass, setSelectedClass] = useState('');
+  const [selectedSection, setSelectedSection] = useState(null);
   const [selectedExams, setSelectedExams] = useState([]); // Array of exam IDs
   const [students, setStudents] = useState([]);
   const [studentName, setStudentName] = useState('');
@@ -55,9 +58,11 @@ const TeacherResults = () => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [openPreview, setOpenPreview] = useState(false);
+  const assignedSections = user?.assigned_sections || [];
+  const hasAssignedSections = assignedSections.length > 0;
 
   // Fetch classes from students
-  const { data: classes, isLoading: classesLoading } = useQuery({
+  const { data: classesData } = useQuery({
     queryKey: ['classes'],
     queryFn: async () => {
       const response = await axios.get('students/');
@@ -70,6 +75,7 @@ const TeacherResults = () => {
         return numA - numB;
       });
     },
+    enabled: !hasAssignedSections,
   });
 
   // Fetch exams
@@ -92,8 +98,84 @@ const TeacherResults = () => {
     enabled: !!selectedClass,
   });
 
+  const classOptions = useMemo(() => {
+    if (hasAssignedSections) {
+      const unique = Array.from(new Set(assignedSections.map((s) => s.class_name).filter(Boolean)));
+      return unique.sort((a, b) => {
+        const numA = parseInt(a, 10);
+        const numB = parseInt(b, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return String(a).localeCompare(String(b));
+      });
+    }
+    return classesData || [];
+  }, [hasAssignedSections, assignedSections, classesData]);
+
+  const sectionsForClass = useMemo(() => {
+    if (!selectedClass) return [];
+    if (hasAssignedSections) {
+      const secs = assignedSections
+        .filter((s) => s.class_name === selectedClass)
+        .map((s) => s.section || '');
+      return Array.from(new Set(secs)).sort();
+    }
+    const secs = (classStudents || [])
+      .map((s) => s.current_section)
+      .filter(Boolean);
+    return Array.from(new Set(secs)).sort();
+  }, [selectedClass, hasAssignedSections, assignedSections, classStudents]);
+
+  const sectionStudents = useMemo(() => {
+    if (!selectedSection) return classStudents || [];
+    return (classStudents || []).filter((s) => s.current_section === selectedSection);
+  }, [classStudents, selectedSection]);
+
+  useEffect(() => {
+    if (!selectedClass) {
+      setSelectedSection(null);
+      return;
+    }
+    if (sectionsForClass.length === 0) {
+      setSelectedSection('');
+      return;
+    }
+    if (selectedSection === null || !sectionsForClass.includes(selectedSection)) {
+      setSelectedSection(sectionsForClass[0] ?? '');
+    }
+  }, [selectedClass, sectionsForClass, selectedSection]);
+
+  const { data: classSubjects, isLoading: subjectsLoading } = useQuery({
+    queryKey: ['class-subjects', selectedClass, selectedSection],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('class_name', selectedClass);
+      params.append('section', selectedSection ?? '');
+      const resp = await axios.get(`results/class-subjects/?${params.toString()}`);
+      const list = Array.isArray(resp.data) ? resp.data : (resp.data?.results || []);
+      return list;
+    },
+    enabled: !!selectedClass && selectedSection !== null,
+  });
+
+  const availableExams = useMemo(() => {
+    const subjectIds = new Set((classSubjects || []).map((cs) => cs.subject));
+    return (exams || []).filter((exam) => subjectIds.has(exam.subject) && (exam.is_active === undefined || exam.is_active));
+  }, [classSubjects, exams]);
+
+  useEffect(() => {
+    if (!selectedClass || selectedSection === null) {
+      setSelectedExams([]);
+      return;
+    }
+    if (availableExams.length > 0) {
+      setSelectedExams(availableExams.map((e) => e.id));
+    } else {
+      setSelectedExams([]);
+    }
+  }, [selectedClass, selectedSection, availableExams]);
+
   // Get selected exam details
-  const selectedExamDetails = (exams || []).filter((e) => selectedExams.includes(e.id));
+  const selectedExamDetails = (availableExams || []).filter((e) => selectedExams.includes(e.id));
 
   // Publish results mutation
   const publishMutation = useMutation({
@@ -107,10 +189,11 @@ const TeacherResults = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['results']);
-      setSuccessMessage(`Successfully added marks for ${students.length} students!`);
+      setSuccessMessage(`Submitted marks for ${students.length} students. Awaiting admin approval.`);
       // Reset form
       setStep(0);
       setSelectedClass('');
+      setSelectedSection(null);
       setSelectedExams([]);
       setStudents([]);
       setMarks({});
@@ -131,7 +214,7 @@ const TeacherResults = () => {
   };
 
   const handleAddStudent = () => {
-    if (!studentName.trim()) {
+    if (!studentName) {
       setError('Please select a student');
       return;
     }
@@ -141,13 +224,13 @@ const TeacherResults = () => {
       return;
     }
 
-    const student = classStudents.find((s) => s.student_id === studentName);
+    const student = sectionStudents.find((s) => s.id === studentName);
     
     setStudents([
       ...students,
       {
         student_id: studentName,
-        student_name: student ? `${student.user.first_name} ${student.user.last_name}` : studentName,
+        student_name: student ? `${student.user_details?.first_name || ''} ${student.user_details?.last_name || ''}`.trim() : String(studentName),
         marks: { ...marks },
       },
     ]);
@@ -185,7 +268,7 @@ const TeacherResults = () => {
     setLoading(false);
   };
 
-  const steps = ['Select Class & Exams', 'Add Student Marks'];
+  const steps = ['Select Class & Subjects', 'Add Student Marks'];
 
   return (
     <Box>
@@ -220,23 +303,25 @@ const TeacherResults = () => {
       {step === 0 && (
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 2 }}>
-            Step 1: Select Class & Exams
+            Step 1: Select Class & Subjects
           </Typography>
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>Select Class</InputLabel>
                 <Select
                   value={selectedClass}
                   onChange={(e) => {
                     setSelectedClass(e.target.value);
+                    setSelectedSection(null);
                     setSelectedExams([]);
                     setStudents([]);
                     setMarks({});
+                    setStudentName('');
                   }}
                   label="Select Class"
                 >
-                  {(classes || []).map((cls) => (
+                  {(classOptions || []).map((cls) => (
                     <MenuItem key={cls} value={cls}>
                       Class {cls}
                     </MenuItem>
@@ -244,25 +329,51 @@ const TeacherResults = () => {
                 </Select>
               </FormControl>
             </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth disabled={!selectedClass || sectionsForClass.length === 0}>
+                <InputLabel>Select Section</InputLabel>
+                <Select
+                  value={selectedSection ?? ''}
+                  onChange={(e) => {
+                    setSelectedSection(e.target.value);
+                    setSelectedExams([]);
+                    setStudents([]);
+                    setMarks({});
+                    setStudentName('');
+                  }}
+                  label="Select Section"
+                >
+                  {sectionsForClass.map((sec) => (
+                    <MenuItem key={sec || 'whole'} value={sec || ''}>
+                      {sec ? `Section ${sec}` : 'Whole Class'}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
 
-            {selectedClass && (
+            {selectedClass && selectedSection !== null && (
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
-                  Select Exams/Subjects for Class {selectedClass}
+                  Subjects for Class {selectedClass}{selectedSection ? ` ${selectedSection}` : ''}
                 </Typography>
                 <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
-                  {examsLoading ? (
+                  {subjectsLoading || examsLoading ? (
                     <Box display="flex" alignItems="center" justifyContent="center" sx={{ py: 2 }}>
                       <CircularProgress size={24} sx={{ mr: 1 }} />
-                      <Typography variant="body2">Loading exams...</Typography>
+                      <Typography variant="body2">Loading subjects...</Typography>
                     </Box>
-                  ) : !exams || exams.length === 0 ? (
+                  ) : (!classSubjects || classSubjects.length === 0) ? (
                     <Typography variant="body2" color="text.secondary">
-                      No exams available. Please create exams first.
+                      No subjects configured for this class/section. Ask admin to assign subjects in Admin &gt; Class Subjects.
+                    </Typography>
+                  ) : !availableExams || availableExams.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      No exams found for the assigned subjects. Ask admin to create exams.
                     </Typography>
                   ) : (
                     <FormGroup>
-                      {exams.map((exam) => (
+                      {availableExams.map((exam) => (
                         <FormControlLabel
                           key={exam.id}
                           control={
@@ -271,7 +382,7 @@ const TeacherResults = () => {
                               onChange={() => handleExamSelection(exam.id)}
                             />
                           }
-                          label={`${exam.subject_name || 'Unknown Subject'} (${exam.name || 'Unnamed Exam'}) - Max: ${exam.total_marks || 0} marks`}
+                          label={`${exam.subject_name || 'Unknown Subject'} (${exam.name || 'Exam'}) - Max: ${exam.total_marks || 0} marks`}
                         />
                       ))}
                     </FormGroup>
@@ -303,7 +414,7 @@ const TeacherResults = () => {
           <Button
             variant="contained"
             onClick={() => setStep(1)}
-            disabled={!selectedClass || selectedExams.length === 0}
+            disabled={!selectedClass || selectedSection === null || selectedExams.length === 0}
             sx={{ mt: 3 }}
             size="large"
           >
@@ -334,11 +445,11 @@ const TeacherResults = () => {
                         onChange={(e) => setStudentName(e.target.value)}
                         label="Student Name"
                       >
-                        {(classStudents || [])
-                          .filter((s) => !students.some((st) => st.student_id === s.student_id))
+                          {(sectionStudents || [])
+                          .filter((s) => !students.some((st) => st.student_id === s.id))
                           .map((student) => (
-                            <MenuItem key={student.id} value={student.student_id}>
-                              {student.user.first_name} {student.user.last_name} ({student.student_id})
+                            <MenuItem key={student.id} value={student.id}>
+                              {student.user_details?.first_name || ''} {student.user_details?.last_name || ''} ({student.student_id})
                             </MenuItem>
                           ))}
                       </Select>
@@ -350,7 +461,7 @@ const TeacherResults = () => {
                 {studentName && (
                   <Box sx={{ mt: 3 }}>
                     <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-                      Enter marks for {classStudents?.find((s) => s.student_id === studentName)?.user.first_name}:
+                      Enter marks for {sectionStudents?.find((s) => s.id === studentName)?.user_details?.first_name}:
                     </Typography>
                     {selectedExamDetails.map((exam) => (
                       <TextField
@@ -389,7 +500,7 @@ const TeacherResults = () => {
           {students.length > 0 && (
             <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
-                Students Added: {students.length} / {classStudents?.length || 0}
+                Students Added: {students.length} / {sectionStudents?.length || 0}
               </Typography>
 
               <TableContainer>
@@ -457,7 +568,7 @@ const TeacherResults = () => {
         <DialogContent>
           <Box sx={{ mt: 2 }}>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              <strong>Class:</strong> {selectedClass}
+              <strong>Class:</strong> {selectedClass}{selectedSection ? ` ${selectedSection}` : ''}
             </Typography>
             <Typography variant="body2" sx={{ mb: 1 }}>
               <strong>Subjects:</strong> {selectedExamDetails.length}

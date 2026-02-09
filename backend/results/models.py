@@ -2,6 +2,8 @@ from django.db import models
 from django.conf import settings
 from students.models import Student
 from attendance.models import Subject
+from teachers.models import Teacher
+from .notifications import build_result_notification
 
 
 class Exam(models.Model):
@@ -94,12 +96,60 @@ class Result(models.Model):
             return 'F'
     
     def save(self, *args, **kwargs):
+        previous_status = None
+        if self.pk:
+            previous_status = Result.objects.filter(pk=self.pk).values_list('status', flat=True).first()
         self.grade = self.calculate_grade()
         super().save(*args, **kwargs)
+        if self.status == 'approved' and previous_status != 'approved':
+            self._create_result_notification()
+
+    def _create_result_notification(self):
+        try:
+            from notices.models import UserNotification
+            if not self.student_id:
+                return
+            if not getattr(self.student, 'user', None):
+                return
+            payload = build_result_notification(
+                exam_name=self.exam.name if self.exam else "Exam",
+                class_name=self.student.current_class if self.student else None,
+                section=self.student.current_section if self.student else None,
+            )
+            exists = UserNotification.objects.filter(
+                user=self.student.user,
+                title=payload["title"],
+                content=payload["content"],
+            ).exists()
+            if not exists:
+                UserNotification.objects.create(user=self.student.user, **payload)
+        except Exception:
+            pass
     
     class Meta:
         unique_together = ['student', 'exam']
         ordering = ['-created_at']
+
+
+class ClassSubjectAssignment(models.Model):
+    """
+    Fixed subject-teacher mapping per class/section.
+    """
+    class_name = models.CharField(max_length=20)
+    section = models.CharField(max_length=10, blank=True, default='')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='class_subject_assignments')
+    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, related_name='class_subject_assignments')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        section_part = f" {self.section}" if self.section else ""
+        teacher_part = self.teacher.user.get_full_name() if self.teacher else "Unassigned"
+        return f"Class {self.class_name}{section_part} - {self.subject.name} ({teacher_part})"
+
+    class Meta:
+        unique_together = ['class_name', 'section', 'subject']
+        ordering = ['class_name', 'section', 'subject__name']
 
 
 class AcademicYear(models.Model):

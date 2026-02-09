@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'notices',
     'notes',
     'tasks',
+    'gallery',
 ]
 
 MIDDLEWARE = [
