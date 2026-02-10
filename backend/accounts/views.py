@@ -19,6 +19,8 @@ from .serializers import (
 )
 from django.utils import timezone
 from django.core.mail import send_mail
+from django.conf import settings
+from django.db import transaction
 
 
 class UserListCreateView(generics.ListCreateAPIView):
@@ -257,8 +259,11 @@ def password_reset_request_create(request):
         data.get('current_section')
     )
 
+    requested_email = (data.get('email') or '').strip().lower()
+
     PasswordResetRequest.objects.create(
         username=data.get('username'),
+        requested_email=requested_email,
         father_name=data.get('father_name'),
         current_class=data.get('current_class'),
         current_section=data.get('current_section'),
@@ -319,8 +324,15 @@ def password_reset_request_approve(request, pk):
             return Response({'detail': 'Matching student not found'}, status=status.HTTP_400_BAD_REQUEST)
 
     user = student.user
-    if not user.email:
-        return Response({'detail': 'Student email not available'}, status=status.HTTP_400_BAD_REQUEST)
+
+    requested_email = (req.requested_email or '').strip()
+    target_email = requested_email
+    if not target_email:
+        return Response({'detail': 'Requested email not available'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Enforce real email backend for production-like behavior
+    if 'console' in (getattr(settings, 'EMAIL_BACKEND', '') or ''):
+        return Response({'detail': 'Email backend not configured for real delivery.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     new_password = (serializer.validated_data.get('new_password') or '').strip()
     if not new_password:
@@ -331,9 +343,6 @@ def password_reset_request_approve(request, pk):
         except Exception:
             return Response({'detail': 'Failed to generate password'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    user.set_password(new_password)
-    user.save()
-
     subject = "Your password has been reset"
     message = (
         f"Hello {user.get_full_name().strip() or user.username},\n\n"
@@ -343,21 +352,37 @@ def password_reset_request_approve(request, pk):
         "Please login and change your password after signing in."
     )
 
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=None,
-        recipient_list=[user.email],
-        fail_silently=True,
-    )
+    try:
+        old_hash = user.password
+        with transaction.atomic():
+            user.set_password(new_password)
+            user.save(update_fields=['password'])
 
-    req.status = 'approved'
-    req.handled_by = request.user
-    req.handled_at = timezone.now()
-    req.admin_note = serializer.validated_data.get('admin_note', '')
-    req.save()
+            sent = send_mail(
+                subject=subject,
+                message=message,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+                recipient_list=[target_email],
+                fail_silently=False,
+            )
 
-    return Response({'message': 'Password reset approved and email sent.'}, status=status.HTTP_200_OK)
+            if sent <= 0:
+                raise RuntimeError('Email not sent')
+
+            req.status = 'approved'
+            req.handled_by = request.user
+            req.handled_at = timezone.now()
+            req.admin_note = serializer.validated_data.get('admin_note', '')
+            req.save()
+    except Exception:
+        try:
+            user.password = old_hash
+            user.save(update_fields=['password'])
+        except Exception:
+            pass
+        return Response({'detail': 'Failed to send email. Check SMTP settings.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response({'message': f'Password reset approved and email sent to {target_email}.'}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])

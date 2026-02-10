@@ -9,6 +9,7 @@ import {
   Paper,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   ListItemAvatar,
   Chip,
@@ -232,17 +233,25 @@ const Home = () => {
               Quick Actions
             </Typography>
             <List>
-              <ListItem button component="a" href="/admin/students">
-                <ListItemText primary="Add New Student" />
+              <ListItem disablePadding>
+                <ListItemButton component="a" href="/admin/students">
+                  <ListItemText primary="Add New Student" />
+                </ListItemButton>
               </ListItem>
-              <ListItem button component="a" href="/admin/teachers">
-                <ListItemText primary="Add New Teacher" />
+              <ListItem disablePadding>
+                <ListItemButton component="a" href="/admin/teachers">
+                  <ListItemText primary="Add New Teacher" />
+                </ListItemButton>
               </ListItem>
-              <ListItem button component="a" href="/admin/attendance">
-                <ListItemText primary="Mark Attendance" />
+              <ListItem disablePadding>
+                <ListItemButton component="a" href="/admin/attendance">
+                  <ListItemText primary="Mark Attendance" />
+                </ListItemButton>
               </ListItem>
-              <ListItem button component="a" href="/admin/notices">
-                <ListItemText primary="Publish Notice" />
+              <ListItem disablePadding>
+                <ListItemButton component="a" href="/admin/notices">
+                  <ListItemText primary="Publish Notice" />
+                </ListItemButton>
               </ListItem>
             </List>
           </Paper>

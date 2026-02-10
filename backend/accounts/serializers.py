@@ -99,6 +99,7 @@ class PasswordChangeSerializer(serializers.Serializer):
 
 class PasswordResetRequestCreateSerializer(serializers.Serializer):
     username = serializers.CharField()
+    email = serializers.EmailField()
     father_name = serializers.CharField()
     current_class = serializers.CharField()
     current_section = serializers.CharField()
@@ -116,6 +117,7 @@ class PasswordResetRequestSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'username',
+            'requested_email',
             'father_name',
             'current_class',
             'current_section',
@@ -165,5 +167,5 @@ class PasswordResetRequestSerializer(serializers.ModelSerializer):
 
 
 class PasswordResetApproveSerializer(serializers.Serializer):
-    new_password = serializers.CharField(min_length=8, required=False, allow_blank=True)
+    new_password = serializers.CharField(required=False, allow_blank=True)
     admin_note = serializers.CharField(required=False, allow_blank=True)

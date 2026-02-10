@@ -20,6 +20,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
 const statusOptions = [
+  { label: 'All', value: 'all' },
   { label: 'Pending', value: 'pending' },
   { label: 'Approved', value: 'approved' },
   { label: 'Rejected', value: 'rejected' }
@@ -35,17 +36,36 @@ const PasswordResetRequests = () => {
   const [error, setError] = useState('');
 
   const queryClient = useQueryClient();
-  const status = statusOptions[tabValue]?.value || 'pending';
+  const status = statusOptions[tabValue]?.value || 'all';
 
   const { data, isLoading } = useQuery({
     queryKey: ['password-reset-requests', status],
     queryFn: async () => {
-      const response = await axios.get(`/accounts/password-reset-requests/list/?status=${status}`);
+      const url = status === 'all'
+        ? '/accounts/password-reset-requests/list/'
+        : `/accounts/password-reset-requests/list/?status=${status}`;
+      const response = await axios.get(url);
       return response.data;
     },
   });
 
   const requests = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+
+  const getErrorMessage = (err, fallback) => {
+    const data = err?.response?.data;
+    if (!data) return fallback;
+    if (typeof data === 'string') return data;
+    if (data.detail) return data.detail;
+    if (data.message) return data.message;
+    if (typeof data === 'object') {
+      try {
+        return Object.values(data).flat().join(' ');
+      } catch (e) {
+        return fallback;
+      }
+    }
+    return fallback;
+  };
 
   const approveMutation = useMutation({
     mutationFn: async ({ id, payload }) => {
@@ -53,14 +73,14 @@ const PasswordResetRequests = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['password-reset-requests']);
+      queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
       setApproveOpen(false);
       setApproveData({ new_password: '', admin_note: '' });
       setSelectedRequest(null);
       setError('');
     },
     onError: (err) => {
-      setError(err.response?.data?.detail || 'Failed to approve request');
+      setError(getErrorMessage(err, 'Failed to approve request'));
     }
   });
 
@@ -70,14 +90,14 @@ const PasswordResetRequests = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['password-reset-requests']);
+      queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
       setRejectOpen(false);
       setRejectNote('');
       setSelectedRequest(null);
       setError('');
     },
     onError: (err) => {
-      setError(err.response?.data?.detail || 'Failed to reject request');
+      setError(getErrorMessage(err, 'Failed to reject request'));
     }
   });
 
@@ -153,6 +173,9 @@ const PasswordResetRequests = () => {
                       Father: {req.father_name} | Class: {req.current_class} | Section: {req.current_section}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
+                      Requested Email: {req.requested_email || '-'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
                       Requested: {formatDate(req.created_at)}
                     </Typography>
                     <Box mt={1} display="flex" gap={1} flexWrap="wrap">
@@ -163,6 +186,11 @@ const PasswordResetRequests = () => {
                       />
                       <Chip size="small" label={req.status.toUpperCase()} />
                     </Box>
+                    {req.status !== 'pending' && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Handled: {formatDate(req.handled_at)}{req.admin_note ? ` | Note: ${req.admin_note}` : ''}
+                      </Typography>
+                    )}
                   </Box>
 
                   <Box textAlign="right">
@@ -173,7 +201,7 @@ const PasswordResetRequests = () => {
                         <br />
                         Class: {req.student_class || '-'} | Section: {req.student_section || '-'}
                         <br />
-                        Email: {req.student_email || 'Not set'}
+                        Student Email: {req.student_email || 'Not set'}
                       </Typography>
                     ) : (
                       <Typography variant="body2" color="text.secondary">No match</Typography>

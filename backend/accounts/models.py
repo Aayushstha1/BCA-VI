@@ -35,6 +35,7 @@ class PasswordResetRequest(models.Model):
     ]
 
     username = models.CharField(max_length=150)
+    requested_email = models.EmailField(blank=True, null=True)
     father_name = models.CharField(max_length=100)
     current_class = models.CharField(max_length=20)
     current_section = models.CharField(max_length=10)

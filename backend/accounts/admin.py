@@ -24,6 +24,6 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(PasswordResetRequest)
 class PasswordResetRequestAdmin(admin.ModelAdmin):
-    list_display = ('username', 'status', 'auto_match', 'created_at', 'handled_at')
+    list_display = ('username', 'requested_email', 'status', 'auto_match', 'created_at', 'handled_at')
     list_filter = ('status', 'auto_match', 'created_at')
-    search_fields = ('username', 'father_name', 'current_class', 'current_section')
+    search_fields = ('username', 'requested_email', 'father_name', 'current_class', 'current_section')

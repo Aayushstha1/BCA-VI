@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, List, ListItem, ListItemText, IconButton, Chip, CircularProgress, Divider, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
+import { Box, Typography, List, ListItem, ListItemText, ListItemButton, IconButton, Chip, CircularProgress, Divider, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 import { Notifications as NotificationsIcon, Done as DoneIcon } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -56,22 +56,31 @@ const NotificationsList = () => {
         <List>
           {notifications.map((n) => (
             <React.Fragment key={n.id}>
-              <ListItem button onClick={() => handleOpen(n)} secondaryAction={
-                !n.is_read && (
-                  <IconButton onClick={(e) => { e.stopPropagation(); markReadMut.mutate({ id: n.id }); }} edge="end" aria-label="mark-read">
-                    <DoneIcon />
-                  </IconButton>
-                )
-              }>
-                <ListItemText
-                  primary={
-                    <Box display="flex" gap={1} alignItems="center">
-                      <Typography variant="subtitle1">{n.title}</Typography>
-                      <Chip label={n.is_read ? 'Read' : 'Unread'} size="small" color={n.is_read ? 'default' : 'primary'} />
-                    </Box>
-                  }
-                  secondary={<Typography variant="body2" color="text.secondary">{new Date(n.created_at).toLocaleString()} — {n.content}</Typography>}
-                />
+              <ListItem
+                disablePadding
+                secondaryAction={
+                  !n.is_read && (
+                    <IconButton
+                      onClick={(e) => { e.stopPropagation(); markReadMut.mutate({ id: n.id }); }}
+                      edge="end"
+                      aria-label="mark-read"
+                    >
+                      <DoneIcon />
+                    </IconButton>
+                  )
+                }
+              >
+                <ListItemButton onClick={() => handleOpen(n)}>
+                  <ListItemText
+                    primary={
+                      <Box display="flex" gap={1} alignItems="center">
+                        <Typography variant="subtitle1">{n.title}</Typography>
+                        <Chip label={n.is_read ? 'Read' : 'Unread'} size="small" color={n.is_read ? 'default' : 'primary'} />
+                      </Box>
+                    }
+                    secondary={<Typography variant="body2" color="text.secondary">{new Date(n.created_at).toLocaleString()} - {n.content}</Typography>}
+                  />
+                </ListItemButton>
               </ListItem>
               <Divider component="li" />
             </React.Fragment>

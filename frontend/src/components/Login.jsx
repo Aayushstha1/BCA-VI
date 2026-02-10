@@ -32,6 +32,7 @@ const Login = () => {
   const [forgotError, setForgotError] = useState('');
   const [forgotData, setForgotData] = useState({
     username: '',
+    email: '',
     father_name: '',
     current_class: '',
     current_section: ''
@@ -102,6 +103,7 @@ const Login = () => {
       setForgotSuccess(resp.data?.message || 'Request submitted. Admin will verify and email you.');
       setForgotData({
         username: '',
+        email: '',
         father_name: '',
         current_class: '',
         current_section: ''
@@ -180,7 +182,11 @@ const Login = () => {
             <Divider sx={{ width: '100%', my: 2 }} />
             <Button
               variant="text"
-              onClick={() => setForgotOpen(true)}
+              onClick={() => {
+                setForgotOpen(true);
+                setForgotError('');
+                setForgotSuccess('');
+              }}
               sx={{ textTransform: 'none', fontWeight: 600 }}
             >
               Forgot password?
@@ -189,7 +195,16 @@ const Login = () => {
         </Paper>
       </Box>
 
-      <Dialog open={forgotOpen} onClose={() => setForgotOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={forgotOpen}
+        onClose={() => {
+          setForgotOpen(false);
+          setForgotError('');
+          setForgotSuccess('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Forgot Password</DialogTitle>
         <form onSubmit={handleForgotSubmit}>
           <DialogContent>
@@ -215,6 +230,17 @@ const Login = () => {
               label="Username"
               name="username"
               value={forgotData.username}
+              onChange={handleForgotChange}
+              disabled={forgotLoading}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              type="email"
+              label="Email"
+              name="email"
+              value={forgotData.email}
               onChange={handleForgotChange}
               disabled={forgotLoading}
             />
