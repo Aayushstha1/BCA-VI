@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.conf import settings
 
 
 class User(AbstractUser):
@@ -24,3 +25,41 @@ class User(AbstractUser):
     
     class Meta:
         db_table = 'auth_user'
+
+
+class PasswordResetRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    username = models.CharField(max_length=150)
+    father_name = models.CharField(max_length=100)
+    current_class = models.CharField(max_length=20)
+    current_section = models.CharField(max_length=10)
+
+    student = models.ForeignKey(
+        'students.Student',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='password_reset_requests'
+    )
+    auto_match = models.BooleanField(default=False)
+
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    handled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='handled_password_reset_requests'
+    )
+    handled_at = models.DateTimeField(null=True, blank=True)
+    admin_note = models.TextField(blank=True, default='')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"PasswordResetRequest({self.username}, {self.status})"

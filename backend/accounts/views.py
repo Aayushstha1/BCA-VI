@@ -7,8 +7,18 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from .models import User
-from .serializers import UserSerializer, UserCreateSerializer, LoginSerializer, PasswordChangeSerializer
+from .models import User, PasswordResetRequest
+from .serializers import (
+    UserSerializer,
+    UserCreateSerializer,
+    LoginSerializer,
+    PasswordChangeSerializer,
+    PasswordResetRequestCreateSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetApproveSerializer
+)
+from django.utils import timezone
+from django.core.mail import send_mail
 
 
 class UserListCreateView(generics.ListCreateAPIView):
@@ -203,3 +213,174 @@ def dashboard_stats_view(request):
         }
 
     return Response(stats)
+
+
+def _normalize(value):
+    return (value or '').strip().lower()
+
+
+def _find_matching_student(username, father_name, current_class, current_section):
+    try:
+        from students.models import Student
+    except Exception:
+        return None, False
+
+    try:
+        student = Student.objects.select_related('user').get(user__username__iexact=username, user__role='student')
+    except Student.DoesNotExist:
+        return None, False
+
+    father_match = _normalize(student.father_name) == _normalize(father_name)
+    class_match = _normalize(student.current_class) == _normalize(current_class)
+    section_match = _normalize(student.current_section) == _normalize(current_section)
+
+    return student, (father_match and class_match and section_match)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([permissions.AllowAny])
+def password_reset_request_create(request):
+    """
+    Create a password reset request (public).
+    """
+    serializer = PasswordResetRequestCreateSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    data = serializer.validated_data
+    student, auto_match = _find_matching_student(
+        data.get('username'),
+        data.get('father_name'),
+        data.get('current_class'),
+        data.get('current_section')
+    )
+
+    PasswordResetRequest.objects.create(
+        username=data.get('username'),
+        father_name=data.get('father_name'),
+        current_class=data.get('current_class'),
+        current_section=data.get('current_section'),
+        student=student,
+        auto_match=auto_match
+    )
+
+    # Always return a generic success response to avoid account enumeration
+    return Response({'message': 'Request submitted. Admin will verify and email you.'}, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def password_reset_requests_list(request):
+    """
+    Admin-only: list password reset requests.
+    """
+    if request.user.role != 'admin':
+        return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    status_filter = request.query_params.get('status')
+    qs = PasswordResetRequest.objects.select_related('student__user').order_by('-created_at')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    serializer = PasswordResetRequestSerializer(qs, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def password_reset_request_approve(request, pk):
+    """
+    Admin-only: approve a password reset request, set a new password, and email it.
+    """
+    if request.user.role != 'admin':
+        return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        req = PasswordResetRequest.objects.select_related('student__user').get(pk=pk)
+    except PasswordResetRequest.DoesNotExist:
+        return Response({'detail': 'Request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if req.status != 'pending':
+        return Response({'detail': 'Request already processed'}, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer = PasswordResetApproveSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    student = req.student
+    if not student:
+        # Attempt a final lookup by username
+        student, _ = _find_matching_student(req.username, req.father_name, req.current_class, req.current_section)
+        if student:
+            req.student = student
+        else:
+            return Response({'detail': 'Matching student not found'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = student.user
+    if not user.email:
+        return Response({'detail': 'Student email not available'}, status=status.HTTP_400_BAD_REQUEST)
+
+    new_password = (serializer.validated_data.get('new_password') or '').strip()
+    if not new_password:
+        try:
+            import secrets, string
+            alphabet = string.ascii_letters + string.digits + "!@#$%&*"
+            new_password = ''.join(secrets.choice(alphabet) for _ in range(12))
+        except Exception:
+            return Response({'detail': 'Failed to generate password'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    user.set_password(new_password)
+    user.save()
+
+    subject = "Your password has been reset"
+    message = (
+        f"Hello {user.get_full_name().strip() or user.username},\n\n"
+        f"Your password has been reset by the admin.\n"
+        f"Username: {user.username}\n"
+        f"New Password: {new_password}\n\n"
+        "Please login and change your password after signing in."
+    )
+
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=None,
+        recipient_list=[user.email],
+        fail_silently=True,
+    )
+
+    req.status = 'approved'
+    req.handled_by = request.user
+    req.handled_at = timezone.now()
+    req.admin_note = serializer.validated_data.get('admin_note', '')
+    req.save()
+
+    return Response({'message': 'Password reset approved and email sent.'}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def password_reset_request_reject(request, pk):
+    """
+    Admin-only: reject a password reset request.
+    """
+    if request.user.role != 'admin':
+        return Response({'detail': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        req = PasswordResetRequest.objects.get(pk=pk)
+    except PasswordResetRequest.DoesNotExist:
+        return Response({'detail': 'Request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if req.status != 'pending':
+        return Response({'detail': 'Request already processed'}, status=status.HTTP_400_BAD_REQUEST)
+
+    req.status = 'rejected'
+    req.handled_by = request.user
+    req.handled_at = timezone.now()
+    req.admin_note = request.data.get('admin_note', '')
+    req.save()
+
+    return Response({'message': 'Password reset request rejected.'}, status=status.HTTP_200_OK)

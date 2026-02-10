@@ -8,9 +8,15 @@ import {
   Typography,
   Box,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider
 } from '@mui/material';
 import { School as SchoolIcon } from '@mui/icons-material';
+import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
@@ -20,6 +26,16 @@ const Login = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotData, setForgotData] = useState({
+    username: '',
+    father_name: '',
+    current_class: '',
+    current_section: ''
+  });
   
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
@@ -65,6 +81,36 @@ const Login = () => {
     }
     
     setLoading(false);
+  };
+
+  const handleForgotChange = (e) => {
+    setForgotData({
+      ...forgotData,
+      [e.target.name]: e.target.value
+    });
+    setForgotError('');
+  };
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    setForgotError('');
+    setForgotSuccess('');
+
+    try {
+      const resp = await axios.post('/accounts/password-reset-requests/', forgotData);
+      setForgotSuccess(resp.data?.message || 'Request submitted. Admin will verify and email you.');
+      setForgotData({
+        username: '',
+        father_name: '',
+        current_class: '',
+        current_section: ''
+      });
+    } catch (err) {
+      setForgotError(err.response?.data?.detail || 'Failed to submit request');
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   return (
@@ -131,10 +177,90 @@ const Login = () => {
               </Button>
             </Box>
 
-           
+            <Divider sx={{ width: '100%', my: 2 }} />
+            <Button
+              variant="text"
+              onClick={() => setForgotOpen(true)}
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            >
+              Forgot password?
+            </Button>
           </Box>
         </Paper>
       </Box>
+
+      <Dialog open={forgotOpen} onClose={() => setForgotOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Forgot Password</DialogTitle>
+        <form onSubmit={handleForgotSubmit}>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Enter the details below. Admin will verify and send your new password by email.
+            </Typography>
+
+            {forgotError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {forgotError}
+              </Alert>
+            )}
+            {forgotSuccess && (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {forgotSuccess}
+              </Alert>
+            )}
+
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="Username"
+              name="username"
+              value={forgotData.username}
+              onChange={handleForgotChange}
+              disabled={forgotLoading}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="Father Name"
+              name="father_name"
+              value={forgotData.father_name}
+              onChange={handleForgotChange}
+              disabled={forgotLoading}
+            />
+            <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Class"
+                name="current_class"
+                value={forgotData.current_class}
+                onChange={handleForgotChange}
+                disabled={forgotLoading}
+              />
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Section"
+                name="current_section"
+                value={forgotData.current_section}
+                onChange={handleForgotChange}
+                disabled={forgotLoading}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={() => setForgotOpen(false)} color="inherit">
+              Close
+            </Button>
+            <Button type="submit" variant="contained" disabled={forgotLoading}>
+              {forgotLoading ? <CircularProgress size={20} /> : 'Submit Request'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
     </Container>
   );
 };

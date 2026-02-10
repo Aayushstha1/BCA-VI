@@ -57,17 +57,17 @@ export default function LandingPage() {
       <main id="top" className="hero">
         <div className="hero__inner">
           <div className="hero__content">
-            <p className="badge">All-in-one campus platform</p>
+            <p className="badge">Campus OS - All-in-one platform</p>
             <h1 className="hero__title">
-              Manage students, teachers, and campus modules in one system
+              All your campus operations, <span>beautifully unified</span>
             </h1>
             <p className="hero__subtitle">
               Attendance, library, hostel, CV builder, results, fees, notices and more —
-              with separate dashboards for Admin, Teacher, and Student.
+              in one clean dashboard for Admin, Teacher, and Student.
             </p>
 
             <div className="hero__cta">
-              <Link className="btn btn--primary btn--lg" to="/register">Create Account</Link>
+              <Link className="btn btn--primary btn--lg" to="/login">Open Login</Link>
               <a className="btn btn--ghost btn--lg" href="#modules">Explore Modules</a>
             </div>
 
@@ -226,8 +226,8 @@ export default function LandingPage() {
               <h3>Ready to launch your system?</h3>
               <p>Connect your backend APIs and start managing your campus.</p>
             </div>
-            <div className="ctaCard__actions">
-              <Link className="btn btn--primary" to="/register">Get Started</Link>
+          <div className="ctaCard__actions">
+              <Link className="btn btn--primary" to="/login">Open Login</Link>
               <a className="btn btn--ghost" href="#contact">Contact</a>
             </div>
           </div>

@@ -19,4 +19,10 @@ urlpatterns = [
     
     # Dashboard
     path('dashboard-stats/', views.dashboard_stats_view, name='dashboard-stats'),
+
+    # Password reset requests
+    path('password-reset-requests/', views.password_reset_request_create, name='password-reset-request-create'),
+    path('password-reset-requests/list/', views.password_reset_requests_list, name='password-reset-request-list'),
+    path('password-reset-requests/<int:pk>/approve/', views.password_reset_request_approve, name='password-reset-request-approve'),
+    path('password-reset-requests/<int:pk>/reject/', views.password_reset_request_reject, name='password-reset-request-reject'),
 ]

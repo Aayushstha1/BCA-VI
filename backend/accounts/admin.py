@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from .models import User, PasswordResetRequest
 
 
 @admin.register(User)
@@ -20,3 +20,10 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         ('Additional Info', {'fields': ('role', 'phone', 'address', 'profile_picture')}),
     )
+
+
+@admin.register(PasswordResetRequest)
+class PasswordResetRequestAdmin(admin.ModelAdmin):
+    list_display = ('username', 'status', 'auto_match', 'created_at', 'handled_at')
+    list_filter = ('status', 'auto_match', 'created_at')
+    search_fields = ('username', 'father_name', 'current_class', 'current_section')

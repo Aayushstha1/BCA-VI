@@ -38,6 +38,7 @@ import {
   Description as DescriptionIcon,
   PhotoLibrary as GalleryIcon,
   MenuBook as SubjectsIcon,
+  LockReset as LockResetIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../../contexts/AuthContext";
 import Home from "./Home";
@@ -54,6 +55,7 @@ import NotesManagement from "./NotesManagement";
 import Tasks from "./Tasks";
 import CVManagement from './CVManagement';
 import Gallery from "../Gallery";
+import PasswordResetRequests from "./PasswordResetRequests";
 
 const drawerWidth = 240;
 
@@ -77,6 +79,7 @@ const Dashboard = () => {
     { text: "Library", icon: <LibraryIcon />, path: "/admin/library" },
     { text: "Results", icon: <GradeIcon />, path: "/admin/results" },
     { text: "Class Subjects", icon: <SubjectsIcon />, path: "/admin/class-subjects" },
+    { text: "Password Requests", icon: <LockResetIcon />, path: "/admin/password-requests" },
     { text: "Notices", icon: <NoticeIcon />, path: "/admin/notices" },
     { text: "Notes", icon: <NoteIcon />, path: "/admin/notes" },
     { text: "Gallery", icon: <GalleryIcon />, path: "/admin/gallery" },
@@ -283,6 +286,7 @@ const Dashboard = () => {
           <Route path="/library" element={<LibraryManagement />} />
           <Route path="/results" element={<ResultsManagement />} />
           <Route path="/class-subjects" element={<ClassSubjectsManagement />} />
+          <Route path="/password-requests" element={<PasswordResetRequests />} />
           <Route path="/notices" element={<NoticesManagement />} />
           <Route path="/notes" element={<NotesManagement />} />
           <Route path="/gallery" element={<Gallery />} />
