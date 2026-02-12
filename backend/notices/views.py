@@ -1,8 +1,38 @@
+from datetime import timedelta
+
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from .models import NoticeCategory, Notice, NoticeRead, UserNotification
 from .serializers import NoticeCategorySerializer, NoticeSerializer, NoticeReadSerializer, UserNotificationSerializer
+from events.models import CalendarEvent
+
+
+def ensure_tomorrow_holiday_notification(user):
+    if getattr(user, 'role', None) != 'student':
+        return
+
+    tomorrow = timezone.localdate() + timedelta(days=1)
+    holidays = CalendarEvent.objects.filter(event_date=tomorrow, is_holiday=True)
+    if not holidays.exists():
+        return
+
+    for holiday in holidays:
+        title = f"Holiday Tomorrow: {holiday.title} ({holiday.event_date})"
+        link = "/student"
+        if UserNotification.objects.filter(user=user, title=title, link=link).exists():
+            continue
+        description = holiday.description or ''
+        content = f"Reminder: {tomorrow.strftime('%B %d, %Y')} is a holiday."
+        if description:
+            content = f"{content} {description}"
+        UserNotification.objects.create(
+            user=user,
+            title=title,
+            content=content,
+            link=link,
+        )
 
 
 class NoticeCategoryListCreateView(generics.ListCreateAPIView):
@@ -47,6 +77,7 @@ class NotificationListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        ensure_tomorrow_holiday_notification(self.request.user)
         return UserNotification.objects.filter(user=self.request.user).order_by('-created_at')
 
 
@@ -85,5 +116,6 @@ class NotificationUnreadCountView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
+        ensure_tomorrow_holiday_notification(request.user)
         unread = UserNotification.objects.filter(user=request.user, is_read=False).count()
         return Response({"unread": unread}, status=status.HTTP_200_OK)

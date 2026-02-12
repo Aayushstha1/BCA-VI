@@ -34,6 +34,7 @@ const PasswordResetRequests = () => {
   const [approveData, setApproveData] = useState({ new_password: '', admin_note: '' });
   const [rejectNote, setRejectNote] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const queryClient = useQueryClient();
   const status = statusOptions[tabValue]?.value || 'all';
@@ -72,15 +73,17 @@ const PasswordResetRequests = () => {
       const response = await axios.post(`/accounts/password-reset-requests/${id}/approve/`, payload);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
       setApproveOpen(false);
       setApproveData({ new_password: '', admin_note: '' });
       setSelectedRequest(null);
       setError('');
+      setSuccess(data?.message || 'Approved and email sent.');
     },
     onError: (err) => {
       setError(getErrorMessage(err, 'Failed to approve request'));
+      setSuccess('');
     }
   });
 
@@ -89,15 +92,17 @@ const PasswordResetRequests = () => {
       const response = await axios.post(`/accounts/password-reset-requests/${id}/reject/`, payload);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
       setRejectOpen(false);
       setRejectNote('');
       setSelectedRequest(null);
       setError('');
+      setSuccess(data?.message || 'Request rejected.');
     },
     onError: (err) => {
       setError(getErrorMessage(err, 'Failed to reject request'));
+      setSuccess('');
     }
   });
 
@@ -105,6 +110,7 @@ const PasswordResetRequests = () => {
     setSelectedRequest(req);
     setApproveData({ new_password: '', admin_note: '' });
     setError('');
+    setSuccess('');
     setApproveOpen(true);
   };
 
@@ -112,6 +118,7 @@ const PasswordResetRequests = () => {
     setSelectedRequest(req);
     setRejectNote('');
     setError('');
+    setSuccess('');
     setRejectOpen(true);
   };
 
@@ -158,6 +165,11 @@ const PasswordResetRequests = () => {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            {success}
+          </Alert>
+        )}
         {requests.length === 0 ? (
           <Typography color="text.secondary">
             No requests found.

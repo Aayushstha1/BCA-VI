@@ -3,6 +3,7 @@ import { Box, Typography, Grid, Paper, CircularProgress, Alert, List, ListItem, 
 import { Class as ClassIcon, Assessment, LibraryBooks, Note, CalendarMonth, Groups, Campaign } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import CalendarWidget from '../CalendarWidget';
 
 const StatCard = ({ icon, label, value, color }) => {
   return (
@@ -234,6 +235,12 @@ const TeacherHome = () => {
               </Typography>
             )}
           </Paper>
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={2} sx={{ mt: 2 }}>
+        <Grid item xs={12}>
+          <CalendarWidget canCreate title="Events Calendar" />
         </Grid>
       </Grid>
     </Box>

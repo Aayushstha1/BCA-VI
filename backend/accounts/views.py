@@ -330,9 +330,9 @@ def password_reset_request_approve(request, pk):
     if not target_email:
         return Response({'detail': 'Requested email not available'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Enforce real email backend for production-like behavior
+    # Enforce real email backend
     if 'console' in (getattr(settings, 'EMAIL_BACKEND', '') or ''):
-        return Response({'detail': 'Email backend not configured for real delivery.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'detail': 'Email backend not configured for real delivery. Configure SMTP in backend/.env.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     new_password = (serializer.validated_data.get('new_password') or '').strip()
     if not new_password:

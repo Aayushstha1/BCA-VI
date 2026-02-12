@@ -4,6 +4,8 @@ import { Box, Typography, Grid, Paper, List, ListItem, ListItemText, Divider, Bu
 import { Assessment, LibraryBooks, Grade, Wallet, School, Note, Campaign } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import CalendarWidget from '../CalendarWidget';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   LineChart,
   Line,
@@ -60,6 +62,7 @@ const StatCard = ({ icon, label, value, color, to }) => {
 };
 
 const StudentHome = () => {
+  const { user } = useAuth();
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -310,6 +313,12 @@ const StudentHome = () => {
               <Link component={RouterLink} to="/student/notes" underline="hover">Notes</Link>
             </Box>
           </Paper>
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={2} sx={{ mt: 1 }}>
+        <Grid item xs={12}>
+          <CalendarWidget title="Events Calendar" />
         </Grid>
       </Grid>
     </Box>

@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import CalendarWidget from '../CalendarWidget';
 
 const StatCard = ({ title, value, icon, color }) => (
   <Card>
@@ -255,6 +256,10 @@ const Home = () => {
               </ListItem>
             </List>
           </Paper>
+        </Grid>
+
+        <Grid item xs={12}>
+          <CalendarWidget canCreate title="Events Calendar" />
         </Grid>
       </Grid>
     </Box>
