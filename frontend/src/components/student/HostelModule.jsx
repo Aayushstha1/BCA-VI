@@ -62,9 +62,9 @@ const HostelSectionHeader = ({ title, action }) => (
   </Box>
 );
 
-const formatRoomType = (type) => (type ? `${type.charAt(0).toUpperCase()}${type.slice(1)}` : '—');
+const formatRoomType = (type) => (type ? `${type.charAt(0).toUpperCase()}${type.slice(1)}` : '--');
 const formatCurrency = (value) => {
-  if (value === null || value === undefined || value === '') return '—';
+  if (value === null || value === undefined || value === '') return '--';
   const numeric = Number(value);
   if (Number.isNaN(numeric)) return String(value);
   return numeric.toLocaleString();
@@ -179,7 +179,7 @@ const HostelModule = ({ initialTab = 'dashboard', focusOnMount = false, subtitle
 
   const myAllocation = allocationsList[0];
   const bookedRoomId = myAllocation?.room;
-  const activeRooms = useMemo(() => roomsList.filter((room) => room.is_active), [roomsList]);
+  const activeRooms = useMemo(() => roomsList.filter((room) => room.is_active !== false), [roomsList]);
 
   const statusCounts = useMemo(() => {
     return roomsList.reduce(
@@ -318,6 +318,8 @@ const HostelModule = ({ initialTab = 'dashboard', focusOnMount = false, subtitle
     const occupantNames = activeAllocations
       .map((alloc) => alloc.student_name || alloc.student_id)
       .filter(Boolean);
+    const visibleOccupants = occupantNames.slice(0, 2);
+    const occupantLabel = visibleOccupants.length ? visibleOccupants.join(', ') : '';
 
     return (
       <Paper
@@ -330,7 +332,7 @@ const HostelModule = ({ initialTab = 'dashboard', focusOnMount = false, subtitle
         }}
       >
         <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Typography variant="subtitle2">{room.room_number}</Typography>
+          <Typography variant="subtitle2">Room ID: {room.room_number}</Typography>
           <Hotel fontSize="small" />
         </Box>
         <Typography variant="caption">{formatRoomType(room.room_type)}</Typography>
@@ -346,9 +348,11 @@ const HostelModule = ({ initialTab = 'dashboard', focusOnMount = false, subtitle
         <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
           Students: {activeAllocations.length}
         </Typography>
-        <Typography variant="caption" display="block">
-          {occupantNames.length ? occupantNames.join(', ') : 'No students yet'}
-        </Typography>
+        {occupantLabel ? (
+          <Typography variant="caption" display="block">
+            {occupantLabel}
+          </Typography>
+        ) : null}
         <Button
           size="small"
           variant="contained"
@@ -382,13 +386,14 @@ const HostelModule = ({ initialTab = 'dashboard', focusOnMount = false, subtitle
         </Box>
       );
     }
-    if (activeRooms.length === 0) {
+    const gridRooms = activeRooms.length ? activeRooms : roomsList;
+    if (gridRooms.length === 0) {
       return <Typography color="text.secondary">No rooms available right now.</Typography>;
     }
 
     return (
       <Grid container spacing={2}>
-        {activeRooms.map((room) => (
+        {gridRooms.map((room) => (
           <Grid item xs={12} sm={6} md={4} key={room.id}>
             {renderRoomCard(room, { colored })}
           </Grid>
