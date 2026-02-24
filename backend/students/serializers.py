@@ -192,9 +192,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'father_name', 'mother_name', 'guardian_contact',
             'current_class', 'current_section', 'roll_number',
             'profile_picture', 'profile_picture_url',
-            'created_at', 'updated_at'
+            'is_active', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['student_id', 'admission_number', 'created_at', 'updated_at']
+        read_only_fields = ['student_id', 'admission_number', 'is_active', 'created_at', 'updated_at']
     
     def get_profile_picture_url(self, obj):
         try:

@@ -110,6 +110,8 @@ const Dashboard = () => {
         height: "100%",
         background: "linear-gradient(180deg, #1e3c72, #2a5298)",
         color: "white",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
       <Toolbar>
@@ -118,7 +120,7 @@ const Dashboard = () => {
         </Typography>
       </Toolbar>
       <Divider sx={{ bgcolor: "rgba(255,255,255,0.2)" }} />
-      <List>
+      <List sx={{ flexGrow: 1, overflowY: "auto", pb: 2 }}>
         {menuItems.map((item) => {
           const active = location.pathname === item.path;
           return (

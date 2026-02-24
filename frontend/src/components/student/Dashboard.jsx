@@ -61,20 +61,17 @@ const StatCard = ({ icon, label, value, color, to }) => {
   );
 };
 
+
 const StudentHome = () => {
   const { user } = useAuth();
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  const cards = [
-    { icon: <Assessment />, label: 'Attendance (This Month)', value: '—', color: 'primary', to: '/student/attendance' },
-    { icon: <Grade />, label: 'CGPA', value: '—', color: 'success', to: '/student/results' },
-    { icon: <LibraryBooks />, label: 'Books Issued', value: '—', color: 'secondary', to: '/student/library' },
-    { icon: <Wallet />, label: 'Finance Dues', value: '—', color: 'warning', to: '/student/finance' },
-    { icon: <School />, label: 'Enrollment Status', value: '—', color: 'info', to: '/student/admission' },
-    { icon: <Note />, label: 'New Notes', value: '—', color: 'error', to: '/student/notes' },
-  ];
+  const { data: studentProfile } = useQuery({
+    queryKey: ['student-profile-self'],
+    queryFn: async () => (await axios.get('/students/profile/')).data,
+  });
 
   const { data: notices, isLoading } = useQuery({
     queryKey: ['notices'],
@@ -82,6 +79,26 @@ const StudentHome = () => {
       const response = await axios.get('notices/');
       return Array.isArray(response.data) ? response.data.slice(0, 5) : (response.data?.results || []).slice(0, 5);
     },
+  });
+
+  const { data: resultsData } = useQuery({
+    queryKey: ['student-results'],
+    queryFn: async () => (await axios.get('/results/')).data,
+  });
+
+  const { data: issuesData } = useQuery({
+    queryKey: ['library-issues'],
+    queryFn: async () => (await axios.get('/library/issues/')).data,
+  });
+
+  const { data: finesData } = useQuery({
+    queryKey: ['library-fines'],
+    queryFn: async () => (await axios.get('/library/fines/')).data,
+  });
+
+  const { data: notesData } = useQuery({
+    queryKey: ['notes'],
+    queryFn: async () => (await axios.get('/notes/')).data,
   });
 
   const {
@@ -156,6 +173,101 @@ const StudentHome = () => {
   const monthlyTotalDays = monthlyResponse?.total_days || 0;
   const monthLabel = monthLabels[currentMonth - 1];
 
+  const placeholder = '\u2014';
+  const studentId = studentProfile?.id;
+  const studentClass = studentProfile?.current_class;
+  const enrollmentStatus = studentProfile?.is_active ?? user?.is_active;
+  const enrollmentValue = enrollmentStatus === undefined ? placeholder : (enrollmentStatus ? 'Active' : 'Inactive');
+
+  const resultsList = useMemo(() => {
+    if (Array.isArray(resultsData)) return resultsData;
+    return resultsData?.results || [];
+  }, [resultsData]);
+
+  const cgpaValue = useMemo(() => {
+    if (!resultsList.length) return null;
+    const totals = resultsList.reduce((acc, result) => {
+      const totalMarks = Number(result.total_marks);
+      const obtained = Number(result.marks_obtained);
+      if (!totalMarks || Number.isNaN(totalMarks) || Number.isNaN(obtained)) {
+        return acc;
+      }
+      const percentage = (obtained / totalMarks) * 100;
+      const cgpa = Math.max(0, Math.min(10, percentage / 10));
+      return { sum: acc.sum + cgpa, count: acc.count + 1 };
+    }, { sum: 0, count: 0 });
+    if (totals.count === 0) return null;
+    return (totals.sum / totals.count).toFixed(2);
+  }, [resultsList]);
+
+  const issuesList = useMemo(() => {
+    if (Array.isArray(issuesData)) return issuesData;
+    return issuesData?.results || [];
+  }, [issuesData]);
+
+  const studentIssues = useMemo(() => {
+    if (!studentId) return [];
+    return issuesList.filter((issue) => issue.student === studentId);
+  }, [issuesList, studentId]);
+
+  const activeIssues = useMemo(
+    () => studentIssues.filter((issue) => issue.status !== 'returned'),
+    [studentIssues],
+  );
+
+  const finesList = useMemo(() => {
+    if (Array.isArray(finesData)) return finesData;
+    return finesData?.results || [];
+  }, [finesData]);
+
+  const financeDue = useMemo(() => {
+    if (!studentIssues.length) return 0;
+    const issueIds = new Set(studentIssues.map((issue) => issue.id));
+    const pendingFinesTotal = finesList
+      .filter((fine) => issueIds.has(fine.book_issue) && (fine.payment_status === 'pending' || !fine.payment_status))
+      .reduce((sum, fine) => sum + Number(fine.amount || 0), 0);
+
+    if (pendingFinesTotal > 0) {
+      return pendingFinesTotal;
+    }
+
+    return studentIssues.reduce((sum, issue) => sum + Number(issue.fine_amount || 0), 0);
+  }, [finesList, studentIssues]);
+
+  const notesList = useMemo(() => {
+    if (Array.isArray(notesData)) return notesData;
+    return notesData?.results || [];
+  }, [notesData]);
+
+  const accessibleNotes = useMemo(() => {
+    return notesList.filter((note) => {
+      if (note.is_active === false) return false;
+      if (note.visibility === 'public') return true;
+      if (note.visibility === 'class_only' && studentClass) {
+        return note.target_class === studentClass;
+      }
+      if (note.visibility === 'private' && user?.id) {
+        return note.uploaded_by === user.id;
+      }
+      return false;
+    });
+  }, [notesList, studentClass, user?.id]);
+
+  const cards = [
+    {
+      icon: <Assessment />,
+      label: 'Attendance (This Month)',
+      value: monthlyResponse ? `${monthlyProgressPercent}%` : placeholder,
+      color: 'primary',
+      to: '/student/attendance',
+    },
+    { icon: <Grade />, label: 'CGPA', value: cgpaValue || placeholder, color: 'success', to: '/student/results' },
+    { icon: <LibraryBooks />, label: 'Books Issued', value: studentId ? activeIssues.length : placeholder, color: 'secondary', to: '/student/library' },
+    { icon: <Wallet />, label: 'Finance Dues', value: studentId ? financeDue.toFixed(2) : placeholder, color: 'warning', to: '/student/finance' },
+    { icon: <School />, label: 'Enrollment Status', value: enrollmentValue, color: 'info', to: '/student/admission' },
+    { icon: <Note />, label: 'New Notes', value: accessibleNotes.length, color: 'error', to: '/student/notes' },
+  ];
+
   return (
     <Box>
       <Typography variant="h4" sx={{ mb: 3 }}>
@@ -168,7 +280,6 @@ const StudentHome = () => {
           </Grid>
         ))}
       </Grid>
-
       <Grid container spacing={2} sx={{ mt: 1 }}>
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 2 }}>

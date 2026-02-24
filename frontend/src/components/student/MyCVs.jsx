@@ -1,17 +1,50 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Box, Container, Typography, Paper, TextField, Button, Grid, 
-  List, ListItem, ListItemText, IconButton, CircularProgress, 
-  Alert, Dialog, DialogTitle, DialogContent, DialogActions, 
-  Chip, Divider, Card, CardContent, Stepper, Step, StepLabel
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  TextField,
+  Button,
+  Grid,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  CircularProgress,
+  Alert,
+  Chip,
+  Divider,
+  Card,
+  CardContent,
+  CardActions,
+  Stepper,
+  Step,
+  StepLabel,
+  FormControlLabel,
+  Checkbox,
+  Stack,
 } from '@mui/material';
-import { 
-  Upload as UploadIcon, Delete as DeleteIcon, 
-  CheckCircle as CheckCircleIcon, Cancel as CancelIcon,
-  Pending as PendingIcon, Visibility as VisibilityIcon
+import {
+  Upload as UploadIcon,
+  Delete as DeleteIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Pending as PendingIcon,
+  Visibility as VisibilityIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
+
+const parseList = (value, limit = 8) => {
+  if (!value) return [];
+  return value
+    .split(/,|\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, limit);
+};
 
 const MyCVs = () => {
   const { user } = useAuth();
@@ -21,8 +54,7 @@ const MyCVs = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
-  // Form fields
+
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [education, setEducation] = useState('');
@@ -35,14 +67,11 @@ const MyCVs = () => {
   const [file, setFile] = useState(null);
   const [projectFile, setProjectFile] = useState(null);
   const [isPrimary, setIsPrimary] = useState(false);
-  
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState(null);
+
   const [submitting, setSubmitting] = useState(false);
-  const [formOpen, setFormOpen] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
 
-  const steps = ['Basic Information', 'Education & Experience', 'Skills & Projects', 'Additional Details'];
+  const steps = ['Basics', 'Education & Experience', 'Skills & Projects', 'Additional Details'];
 
   useEffect(() => {
     fetchCVs();
@@ -52,8 +81,8 @@ const MyCVs = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      const resp = await axios.get(`${API_BASE_URL}/students/cvs/`, { 
-        headers: { Authorization: `Token ${token}` } 
+      const resp = await axios.get(`${API_BASE_URL}/students/cvs/`, {
+        headers: { Authorization: `Token ${token}` },
       });
       const results = resp.data.results || resp.data;
       setCvs(results);
@@ -91,7 +120,7 @@ const MyCVs = () => {
       setError('Please enter a title');
       return;
     }
-    
+
     setSubmitting(true);
     setError('');
     try {
@@ -109,30 +138,16 @@ const MyCVs = () => {
       formData.append('is_primary', isPrimary ? 'true' : 'false');
       if (file) formData.append('file', file);
       if (projectFile) formData.append('project_file', projectFile);
-      
-      await axios.post(`${API_BASE_URL}/students/cvs/`, formData, { 
-        headers: { 
-          Authorization: `Token ${token}`, 
-          'Content-Type': 'multipart/form-data' 
-        } 
+
+      await axios.post(`${API_BASE_URL}/students/cvs/`, formData, {
+        headers: {
+          Authorization: `Token ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
       });
-      
-      // Reset form
-      setTitle('');
-      setSummary('');
-      setEducation('');
-      setExperience('');
-      setSkills('');
-      setProjects('');
-      setCertifications('');
-      setLanguages('');
-      setHobbies('');
-      setFile(null);
-      setProjectFile(null);
-      setIsPrimary(false);
-      setActiveStep(0);
-      setFormOpen(false);
-      setSuccess('CV submitted successfully! It is pending approval from admin/teacher.');
+
+      resetForm();
+      setSuccess('CV submitted successfully. It is pending approval.');
       setTimeout(() => setSuccess(''), 5000);
       fetchCVs();
     } catch (err) {
@@ -146,8 +161,8 @@ const MyCVs = () => {
     if (!window.confirm('Delete this CV?')) return;
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      await axios.delete(`${API_BASE_URL}/students/cvs/${id}/`, { 
-        headers: { Authorization: `Token ${token}` } 
+      await axios.delete(`${API_BASE_URL}/students/cvs/${id}/`, {
+        headers: { Authorization: `Token ${token}` },
       });
       setSuccess('CV deleted successfully');
       setTimeout(() => setSuccess(''), 3000);
@@ -165,12 +180,7 @@ const MyCVs = () => {
     };
     const config = statusConfig[status] || statusConfig.pending;
     return (
-      <Chip 
-        icon={config.icon} 
-        label={config.label} 
-        color={config.color} 
-        size="small" 
-      />
+      <Chip icon={config.icon} label={config.label} color={config.color} size="small" />
     );
   };
 
@@ -191,333 +201,495 @@ const MyCVs = () => {
     setError('');
   };
 
-  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}><CircularProgress /></Box>;
+  const displayName = user?.first_name || user?.last_name
+    ? `${user?.first_name || ''} ${user?.last_name || ''}`.trim()
+    : (user?.username || 'Student');
+  const displayEmail = user?.email || 'email@example.com';
+
+  const skillChips = useMemo(() => parseList(skills), [skills]);
+  const languageChips = useMemo(() => parseList(languages), [languages]);
+  const certificationChips = useMemo(() => parseList(certifications), [certifications]);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>My CVs</Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<UploadIcon />}
-          onClick={() => {
-            resetForm();
-            setFormOpen(true);
-          }}
-        >
-          Create New CV
-        </Button>
-      </Box>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+          {success}
+        </Alert>
+      )}
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>CV Submissions</Typography>
-        {cvs.length === 0 ? (
-          <Typography color="textSecondary" sx={{ textAlign: 'center', py: 4 }}>
-            No CVs found. Create your first CV to get started!
-          </Typography>
-        ) : (
-          <List>
-            {cvs.map((cv) => (
-              <Card key={cv.id} sx={{ mb: 2 }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Typography variant="h6">{cv.title}</Typography>
-                        {getStatusChip(cv.approval_status)}
-                        {cv.is_primary && (
-                          <Chip label="Primary" color="primary" size="small" />
-                        )}
-                      </Box>
-                      {cv.summary && (
-                        <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                          {cv.summary}
-                        </Typography>
-                      )}
-                      {cv.approval_status === 'rejected' && cv.rejection_reason && (
-                        <Alert severity="error" sx={{ mt: 1, mb: 1 }}>
-                          <Typography variant="body2"><strong>Rejection Reason:</strong> {cv.rejection_reason}</Typography>
-                        </Alert>
-                      )}
-                      {cv.approval_status === 'approved' && cv.approved_by_name && (
-                        <Typography variant="caption" color="textSecondary">
-                          Approved by {cv.approved_by_name}
-                          {cv.approved_at && ` on ${new Date(cv.approved_at).toLocaleDateString()}`}
-                        </Typography>
-                      )}
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      {cv.file_url && (
-                        <>
-                          <Button 
-                            size="small" 
-                            href={cv.file_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            startIcon={<VisibilityIcon />}
-                          >
-                            View
-                          </Button>
-                          <Button 
-                            size="small" 
-                            href={cv.file_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            download
-                          >
-                            Download
-                          </Button>
-                        </>
-                      )}
-                      {cv.project_file_url && (
-                        <Button 
-                          size="small" 
-                          variant="outlined"
-                          href={cv.project_file_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                        >
-                          Project File
-                        </Button>
-                      )}
-                      {cv.approval_status !== 'approved' && (
-                        <IconButton 
-                          edge="end" 
-                          aria-label="delete" 
-                          onClick={() => handleDelete(cv.id)}
-                          color="error"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      )}
-                    </Box>
-                  </Box>
-                  
-                  <Divider sx={{ my: 2 }} />
-                  
-                  <Grid container spacing={2}>
-                    {cv.education && (
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Education</Typography>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{cv.education}</Typography>
-                      </Grid>
-                    )}
-                    {cv.experience && (
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Experience</Typography>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{cv.experience}</Typography>
-                      </Grid>
-                    )}
-                    {cv.skills && (
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Skills</Typography>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{cv.skills}</Typography>
-                      </Grid>
-                    )}
-                    {cv.projects && (
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" color="textSecondary">Projects</Typography>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{cv.projects}</Typography>
-                      </Grid>
-                    )}
-                  </Grid>
-                </CardContent>
-              </Card>
-            ))}
-          </List>
-        )}
+      <Paper
+        sx={{
+          p: 3,
+          mb: 3,
+          borderRadius: 3,
+          color: 'white',
+          background: 'linear-gradient(120deg, #0f172a 0%, #1d4ed8 100%)',
+        }}
+      >
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={8}>
+            <Typography variant="h4" sx={{ fontWeight: 700 }}>
+              Professional CV Studio
+            </Typography>
+            <Typography variant="body1" sx={{ mt: 1, opacity: 0.9 }}>
+              Build a business-ready CV with clean sections, measurable impact, and a modern layout.
+            </Typography>
+            <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap' }}>
+              <Chip label="ATS-ready" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: 'white' }} />
+              <Chip label="Executive style" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: 'white' }} />
+              <Chip label="Fast approvals" sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: 'white' }} />
+            </Stack>
+          </Grid>
+          <Grid item xs={12} md={4} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+            <Button
+              variant="contained"
+              startIcon={<UploadIcon />}
+              onClick={resetForm}
+              sx={{
+                bgcolor: 'white',
+                color: '#1d4ed8',
+                fontWeight: 600,
+                '&:hover': { bgcolor: '#e2e8f0' },
+              }}
+            >
+              Create New CV
+            </Button>
+          </Grid>
+        </Grid>
       </Paper>
 
-      {/* Create CV Dialog */}
-      <Dialog open={formOpen} onClose={() => { setFormOpen(false); resetForm(); }} fullWidth maxWidth="md">
-        <DialogTitle>Create New CV</DialogTitle>
-        <DialogContent>
-          <Stepper activeStep={activeStep} sx={{ mb: 4, mt: 2 }}>
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={7}>
+          <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                CV Builder
+              </Typography>
+              <Chip
+                label={isPrimary ? 'Primary CV' : 'Draft'}
+                color={isPrimary ? 'primary' : 'default'}
+                size="small"
+              />
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+            <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 3 }}>
+              {steps.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
 
-          {activeStep === 0 && (
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField 
-                  label="CV Title *" 
-                  fullWidth 
-                  value={title} 
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField 
-                  label="Summary" 
-                  fullWidth 
-                  multiline 
-                  rows={4} 
-                  value={summary} 
-                  onChange={(e) => setSummary(e.target.value)}
-                  placeholder="Brief summary about yourself"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Button variant="contained" component="label" startIcon={<UploadIcon />}>
-                  Upload CV File (PDF)
-                  <input hidden type="file" accept="application/pdf" onChange={handleFileChange} />
-                </Button>
-                <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-                  {file ? file.name : 'No file selected'}
-                </Typography>
-              </Grid>
-            </Grid>
-          )}
-
-          {activeStep === 1 && (
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField 
-                  label="Education" 
-                  fullWidth 
-                  multiline 
-                  rows={6} 
-                  value={education} 
-                  onChange={(e) => setEducation(e.target.value)}
-                  placeholder="List your educational qualifications, degrees, institutions, years, etc."
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField 
-                  label="Experience" 
-                  fullWidth 
-                  multiline 
-                  rows={6} 
-                  value={experience} 
-                  onChange={(e) => setExperience(e.target.value)}
-                  placeholder="List your work experience, internships, positions, responsibilities, etc."
-                />
-              </Grid>
-            </Grid>
-          )}
-
-          {activeStep === 2 && (
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField 
-                  label="Skills" 
-                  fullWidth 
-                  multiline 
-                  rows={4} 
-                  value={skills} 
-                  onChange={(e) => setSkills(e.target.value)}
-                  placeholder="List your technical skills, programming languages, tools, etc."
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField 
-                  label="Projects" 
-                  fullWidth 
-                  multiline 
-                  rows={6} 
-                  value={projects} 
-                  onChange={(e) => setProjects(e.target.value)}
-                  placeholder="Describe your projects, technologies used, your role, achievements, etc."
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Button variant="outlined" component="label" startIcon={<UploadIcon />}>
-                  Upload Project File/Document
-                  <input hidden type="file" onChange={handleProjectFileChange} />
-                </Button>
-                <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-                  {projectFile ? projectFile.name : 'No file selected (optional)'}
-                </Typography>
-              </Grid>
-            </Grid>
-          )}
-
-          {activeStep === 3 && (
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField 
-                  label="Certifications" 
-                  fullWidth 
-                  multiline 
-                  rows={4} 
-                  value={certifications} 
-                  onChange={(e) => setCertifications(e.target.value)}
-                  placeholder="List your certifications, courses, achievements, awards, etc."
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField 
-                  label="Languages" 
-                  fullWidth 
-                  multiline 
-                  rows={2} 
-                  value={languages} 
-                  onChange={(e) => setLanguages(e.target.value)}
-                  placeholder="Languages you know (e.g., English, Hindi, etc.)"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField 
-                  label="Hobbies & Interests" 
-                  fullWidth 
-                  multiline 
-                  rows={3} 
-                  value={hobbies} 
-                  onChange={(e) => setHobbies(e.target.value)}
-                  placeholder="Your hobbies and interests"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <input 
-                    type="checkbox" 
-                    checked={isPrimary} 
-                    onChange={(e) => setIsPrimary(e.target.checked)}
-                    id="isPrimary"
+            {activeStep === 0 && (
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    label="CV Title"
+                    fullWidth
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
                   />
-                  <label htmlFor="isPrimary">Set as primary CV (only applies after approval)</label>
-                </Box>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Professional Summary"
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    placeholder="Short summary highlighting your strengths, role, and impact."
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      borderStyle: 'dashed',
+                      borderColor: 'divider',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 2,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle2">Upload CV file (PDF)</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Optional but recommended for a polished CV.
+                      </Typography>
+                    </Box>
+                    <Button variant="contained" component="label" startIcon={<UploadIcon />}>
+                      Select File
+                      <input hidden type="file" accept="application/pdf" onChange={handleFileChange} />
+                    </Button>
+                  </Paper>
+                  <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+                    {file ? file.name : 'No file selected'}
+                  </Typography>
+                </Grid>
               </Grid>
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { setFormOpen(false); resetForm(); }}>Cancel</Button>
-          {activeStep > 0 && <Button onClick={handleBack}>Back</Button>}
-          {activeStep < steps.length - 1 ? (
-            <Button onClick={handleNext} variant="contained">Next</Button>
-          ) : (
-            <Button onClick={handleSubmit} variant="contained" disabled={submitting}>
-              {submitting ? 'Submitting...' : 'Submit CV'}
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
+            )}
 
-      {/* Preview Dialog */}
-      <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} fullWidth maxWidth="lg">
-        <DialogTitle>Preview CV</DialogTitle>
-        <DialogContent sx={{ minHeight: 400 }}>
-          {previewUrl ? (
-            <object data={previewUrl} type="application/pdf" width="100%" height="600"> 
-              <p>Your browser does not support PDFs. <a href={previewUrl}>Download</a></p>
-            </object>
-          ) : (
-            <Typography>No file to preview</Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreviewOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+            {activeStep === 1 && (
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Education"
+                    fullWidth
+                    multiline
+                    rows={6}
+                    value={education}
+                    onChange={(e) => setEducation(e.target.value)}
+                    placeholder="Degree, institution, year, honors, GPA, certifications."
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Experience"
+                    fullWidth
+                    multiline
+                    rows={6}
+                    value={experience}
+                    onChange={(e) => setExperience(e.target.value)}
+                    placeholder="Company, role, key achievements, measurable results."
+                  />
+                </Grid>
+              </Grid>
+            )}
+
+            {activeStep === 2 && (
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Skills"
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={skills}
+                    onChange={(e) => setSkills(e.target.value)}
+                    placeholder="Example: Leadership, Financial Modeling, Sales Strategy, Excel"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Projects"
+                    fullWidth
+                    multiline
+                    rows={6}
+                    value={projects}
+                    onChange={(e) => setProjects(e.target.value)}
+                    placeholder="Key projects, impact, tools used, results."
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      borderStyle: 'dashed',
+                      borderColor: 'divider',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 2,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle2">Upload supporting project file</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Optional case study, portfolio, or project report.
+                      </Typography>
+                    </Box>
+                    <Button variant="outlined" component="label" startIcon={<UploadIcon />}>
+                      Upload File
+                      <input hidden type="file" onChange={handleProjectFileChange} />
+                    </Button>
+                  </Paper>
+                  <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+                    {projectFile ? projectFile.name : 'No file selected'}
+                  </Typography>
+                </Grid>
+              </Grid>
+            )}
+
+            {activeStep === 3 && (
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Certifications"
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={certifications}
+                    onChange={(e) => setCertifications(e.target.value)}
+                    placeholder="Certifications, awards, professional courses."
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Languages"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    value={languages}
+                    onChange={(e) => setLanguages(e.target.value)}
+                    placeholder="Example: English, Hindi, French"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Interests"
+                    fullWidth
+                    multiline
+                    rows={3}
+                    value={hobbies}
+                    onChange={(e) => setHobbies(e.target.value)}
+                    placeholder="Leadership clubs, volunteering, travel, debate."
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={isPrimary}
+                        onChange={(e) => setIsPrimary(e.target.checked)}
+                      />
+                    }
+                    label="Set as primary CV (after approval)"
+                  />
+                </Grid>
+              </Grid>
+            )}
+
+            <Box display="flex" justifyContent="space-between" mt={3}>
+              <Button onClick={handleBack} disabled={activeStep === 0}>
+                Back
+              </Button>
+              {activeStep < steps.length - 1 ? (
+                <Button onClick={handleNext} variant="contained">
+                  Next
+                </Button>
+              ) : (
+                <Button onClick={handleSubmit} variant="contained" disabled={submitting}>
+                  {submitting ? 'Submitting...' : 'Submit CV'}
+                </Button>
+              )}
+            </Box>
+          </Paper>
+
+          <Paper sx={{ p: 3, borderRadius: 3 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              CV Submissions
+            </Typography>
+            {cvs.length === 0 ? (
+              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                No CVs found. Create your first CV to get started.
+              </Typography>
+            ) : (
+              <Grid container spacing={2}>
+                {cvs.map((cv) => (
+                  <Grid item xs={12} md={6} key={cv.id}>
+                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <CardContent sx={{ flexGrow: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                            {cv.title}
+                          </Typography>
+                          {getStatusChip(cv.approval_status)}
+                          {cv.is_primary && <Chip label="Primary" color="primary" size="small" />}
+                        </Box>
+                        {cv.summary && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            {cv.summary}
+                          </Typography>
+                        )}
+                        {cv.approval_status === 'rejected' && cv.rejection_reason && (
+                          <Alert severity="error" sx={{ mt: 1 }}>
+                            <Typography variant="body2">
+                              Rejection: {cv.rejection_reason}
+                            </Typography>
+                          </Alert>
+                        )}
+                        {cv.approval_status === 'approved' && cv.approved_by_name && (
+                          <Typography variant="caption" color="text.secondary">
+                            Approved by {cv.approved_by_name}
+                            {cv.approved_at && ` on ${new Date(cv.approved_at).toLocaleDateString()}`}
+                          </Typography>
+                        )}
+                      </CardContent>
+                      <CardActions sx={{ justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          {cv.file_url && (
+                            <Button
+                              size="small"
+                              href={cv.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              startIcon={<VisibilityIcon />}
+                            >
+                              View
+                            </Button>
+                          )}
+                          {cv.file_url && (
+                            <Button
+                              size="small"
+                              href={cv.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              startIcon={<DownloadIcon />}
+                            >
+                              Download
+                            </Button>
+                          )}
+                          {cv.project_file_url && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              href={cv.project_file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Project File
+                            </Button>
+                          )}
+                        </Box>
+                        {cv.approval_status !== 'approved' && (
+                          <IconButton
+                            edge="end"
+                            aria-label="delete"
+                            onClick={() => handleDelete(cv.id)}
+                            color="error"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={5}>
+          <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Live Preview
+            </Typography>
+            <Box sx={{ p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                {displayName}
+              </Typography>
+              <Typography variant="subtitle2" color="text.secondary">
+                {title || 'Business Analyst | Strategy | Growth'}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Email: {displayEmail}
+              </Typography>
+              <Divider sx={{ my: 1.5 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                Summary
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                {summary || 'Add a strong summary to highlight your experience, results, and leadership.'}
+              </Typography>
+              <Divider sx={{ my: 1.5 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                Education
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                {education || 'Add your degree, institution, and academic achievements.'}
+              </Typography>
+              <Divider sx={{ my: 1.5 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                Experience
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                {experience || 'Outline your roles and measurable impact.'}
+              </Typography>
+              <Divider sx={{ my: 1.5 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                Skills
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {skillChips.length ? (
+                  skillChips.map((skill) => <Chip key={skill} label={skill} size="small" />)
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Add skills to highlight your expertise.
+                  </Typography>
+                )}
+              </Box>
+              <Divider sx={{ my: 1.5 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                Certifications
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {certificationChips.length ? (
+                  certificationChips.map((item) => <Chip key={item} label={item} size="small" />)
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Add certifications or awards.
+                  </Typography>
+                )}
+              </Box>
+              <Divider sx={{ my: 1.5 }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                Languages
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {languageChips.length ? (
+                  languageChips.map((item) => <Chip key={item} label={item} size="small" />)
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Add languages to show communication skills.
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          </Paper>
+
+          <Paper sx={{ p: 3, borderRadius: 3 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+              Business CV Tips
+            </Typography>
+            <List dense>
+              <ListItem>
+                <ListItemText primary="Lead with impact by quantifying outcomes." />
+              </ListItem>
+              <ListItem>
+                <ListItemText primary="Keep summaries concise and role-specific." />
+              </ListItem>
+              <ListItem>
+                <ListItemText primary="Highlight leadership, strategy, and measurable growth." />
+              </ListItem>
+              <ListItem>
+                <ListItemText primary="Use strong action verbs and results in bullet points." />
+              </ListItem>
+            </List>
+          </Paper>
+        </Grid>
+      </Grid>
     </Container>
   );
 };

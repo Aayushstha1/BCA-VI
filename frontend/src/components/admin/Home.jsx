@@ -13,8 +13,10 @@ import {
   ListItemText,
   ListItemAvatar,
   Chip,
+  Button,
   CircularProgress,
-  Alert
+  Alert,
+  Divider,
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -24,7 +26,7 @@ import {
   Assessment as AssessmentIcon,
   Home as HomeIcon
 } from '@mui/icons-material';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import CalendarWidget from '../CalendarWidget';
 
@@ -49,6 +51,7 @@ const StatCard = ({ title, value, icon, color }) => (
 );
 
 const Home = () => {
+  const queryClient = useQueryClient();
   const [stats, setStats] = useState({
     total_students: 0,
     total_teachers: 0,
@@ -70,6 +73,36 @@ const Home = () => {
     refetchOnWindowFocus: true,
     staleTime: 5000,
   });
+
+  const { data: cvsData, isLoading: cvsLoading } = useQuery({
+    queryKey: ['cvs'],
+    queryFn: async () => (await axios.get('/students/cvs/')).data,
+  });
+
+  const approvalMutation = useMutation({
+    mutationFn: async ({ id, status, reason }) => {
+      return axios.patch(`/students/cvs/${id}/approve/`, {
+        approval_status: status,
+        rejection_reason: reason || '',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cvs'] });
+    },
+  });
+
+  const cvsList = Array.isArray(cvsData) ? cvsData : (cvsData?.results || []);
+  const pendingCVs = cvsList.filter((cv) => cv.approval_status === 'pending').slice(0, 5);
+
+  const handleApprove = (cv) => {
+    approvalMutation.mutate({ id: cv.id, status: 'approved', reason: '' });
+  };
+
+  const handleReject = (cv) => {
+    const reason = window.prompt('Reason for rejection (optional):', '');
+    if (reason === null) return;
+    approvalMutation.mutate({ id: cv.id, status: 'rejected', reason });
+  };
 
   useEffect(() => {
     if (dashboardData) {
@@ -187,7 +220,81 @@ const Home = () => {
           />
         </Grid>
 
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2 }}>
+            <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+              <Typography variant="h6">Pending CVs</Typography>
+              <ListItemButton component="a" href="/admin/cvs" sx={{ width: 'auto', px: 2 }}>
+                <ListItemText primary="View all" />
+              </ListItemButton>
+            </Box>
+            <Divider sx={{ mb: 1 }} />
+            {cvsLoading ? (
+              <Box display="flex" justifyContent="center" p={2}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : pendingCVs.length === 0 ? (
+              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                No pending CVs.
+              </Typography>
+            ) : (
+              <List>
+                {pendingCVs.map((cv) => (
+                  <ListItem
+                    key={cv.id}
+                    secondaryAction={
+                      <Box display="flex" gap={1}>
+                        <Button size="small" color="success" onClick={() => handleApprove(cv)}>
+                          Approve
+                        </Button>
+                        <Button size="small" color="error" onClick={() => handleReject(cv)}>
+                          Reject
+                        </Button>
+                      </Box>
+                    }
+                  >
+                    <ListItemText
+                      primary={cv.title}
+                      secondary={cv.owner || 'Student'}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Quick Actions
+            </Typography>
+            <List>
+              <ListItem disablePadding>
+                <ListItemButton component="a" href="/admin/students">
+                  <ListItemText primary="Add New Student" />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton component="a" href="/admin/teachers">
+                  <ListItemText primary="Add New Teacher" />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton component="a" href="/admin/attendance">
+                  <ListItemText primary="Mark Attendance" />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton component="a" href="/admin/notices">
+                  <ListItemText primary="Publish Notice" />
+                </ListItemButton>
+              </ListItem>
+            </List>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
               Recent Activities
@@ -225,36 +332,6 @@ const Home = () => {
                 ))}
               </List>
             )}
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Quick Actions
-            </Typography>
-            <List>
-              <ListItem disablePadding>
-                <ListItemButton component="a" href="/admin/students">
-                  <ListItemText primary="Add New Student" />
-                </ListItemButton>
-              </ListItem>
-              <ListItem disablePadding>
-                <ListItemButton component="a" href="/admin/teachers">
-                  <ListItemText primary="Add New Teacher" />
-                </ListItemButton>
-              </ListItem>
-              <ListItem disablePadding>
-                <ListItemButton component="a" href="/admin/attendance">
-                  <ListItemText primary="Mark Attendance" />
-                </ListItemButton>
-              </ListItem>
-              <ListItem disablePadding>
-                <ListItemButton component="a" href="/admin/notices">
-                  <ListItemText primary="Publish Notice" />
-                </ListItemButton>
-              </ListItem>
-            </List>
           </Paper>
         </Grid>
 

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Box, Typography, Grid, Paper, CircularProgress, Alert, List, ListItem, ListItemText, Divider } from '@mui/material';
+import { Box, Typography, Grid, Paper, CircularProgress, Alert, List, ListItem, ListItemText, Divider, Button } from '@mui/material';
 import { Class as ClassIcon, Assessment, LibraryBooks, Note, CalendarMonth, Groups, Campaign } from '@mui/icons-material';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import CalendarWidget from '../CalendarWidget';
 
@@ -34,6 +34,7 @@ const StatCard = ({ icon, label, value, color }) => {
 };
 
 const TeacherHome = () => {
+  const queryClient = useQueryClient();
   // Students
   const {
     data: students,
@@ -101,6 +102,36 @@ const TeacherHome = () => {
       return Array.isArray(res.data) ? res.data.slice(0, 5) : (res.data?.results || []).slice(0, 5);
     },
   });
+
+  const { data: cvsData, isLoading: cvsLoading } = useQuery({
+    queryKey: ['teacher-cvs'],
+    queryFn: async () => (await axios.get('/students/cvs/')).data,
+  });
+
+  const approvalMutation = useMutation({
+    mutationFn: async ({ id, status, reason }) => {
+      return axios.patch(`/students/cvs/${id}/approve/`, {
+        approval_status: status,
+        rejection_reason: reason || '',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teacher-cvs'] });
+    },
+  });
+
+  const cvsList = Array.isArray(cvsData) ? cvsData : (cvsData?.results || []);
+  const pendingCVs = cvsList.filter((cv) => cv.approval_status === 'pending').slice(0, 5);
+
+  const handleApprove = (cv) => {
+    approvalMutation.mutate({ id: cv.id, status: 'approved', reason: '' });
+  };
+
+  const handleReject = (cv) => {
+    const reason = window.prompt('Reason for rejection (optional):', '');
+    if (reason === null) return;
+    approvalMutation.mutate({ id: cv.id, status: 'rejected', reason });
+  };
 
   const loading = studentsLoading || sessionsLoading || notesLoading || booksLoading;
   const hasError = studentsError || sessionsError || notesError || booksError;
@@ -233,6 +264,47 @@ const TeacherHome = () => {
               <Typography color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
                 No notices yet.
               </Typography>
+            )}
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 2 }}>
+            <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+              <Typography variant="h6">Pending CVs</Typography>
+              <Button size="small" href="/teacher/cvs">View all</Button>
+            </Box>
+            <Divider sx={{ mb: 1 }} />
+            {cvsLoading ? (
+              <Box display="flex" justifyContent="center" p={2}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : pendingCVs.length === 0 ? (
+              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                No pending CVs.
+              </Typography>
+            ) : (
+              <List>
+                {pendingCVs.map((cv) => (
+                  <ListItem
+                    key={cv.id}
+                    secondaryAction={
+                      <Box display="flex" gap={1}>
+                        <Button size="small" color="success" onClick={() => handleApprove(cv)}>
+                          Approve
+                        </Button>
+                        <Button size="small" color="error" onClick={() => handleReject(cv)}>
+                          Reject
+                        </Button>
+                      </Box>
+                    }
+                  >
+                    <ListItemText
+                      primary={cv.title}
+                      secondary={cv.owner || 'Student'}
+                    />
+                  </ListItem>
+                ))}
+              </List>
             )}
           </Paper>
         </Grid>

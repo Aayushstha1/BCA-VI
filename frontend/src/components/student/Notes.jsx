@@ -24,7 +24,7 @@ const Notes = () => {
     return <Alert severity="error">Failed to load notes.</Alert>;
   }
 
-  const notes = data || [];
+  const notes = Array.isArray(data) ? data : [];
 
   return (
     <Box>
