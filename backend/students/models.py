@@ -217,6 +217,3 @@ class ClassSection(models.Model):
 
     def __str__(self):
         return f"{self.class_name}{(' ' + self.section) if self.section else ''}"
-
-# Import CV model kept in a separate module to keep students/models.py focused
-from .cv import CV
