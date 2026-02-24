@@ -3,6 +3,8 @@ from .models import Hostel, Room, HostelAllocation
 
 
 class HostelSerializer(serializers.ModelSerializer):
+    available_beds = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Hostel
         fields = '__all__'
@@ -10,6 +12,7 @@ class HostelSerializer(serializers.ModelSerializer):
 
 class RoomSerializer(serializers.ModelSerializer):
     hostel_name = serializers.CharField(source='hostel.name', read_only=True)
+    available_beds = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = Room
@@ -24,3 +27,9 @@ class HostelAllocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = HostelAllocation
         fields = '__all__'
+        extra_kwargs = {
+            'student': {'required': False},
+            'allocated_date': {'required': False},
+            'monthly_rent': {'required': False},
+            'is_active': {'required': False},
+        }
