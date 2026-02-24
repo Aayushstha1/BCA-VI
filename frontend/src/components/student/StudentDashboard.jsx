@@ -36,9 +36,11 @@ import {
   Notifications as NotificationsIcon,
   Description as DescriptionIcon,
   PhotoLibrary as GalleryIcon,
+  Hotel as HostelIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import StudentHome from './Dashboard';
+import Hostel from './Hostel';
 import ReportCard from './ReportCard';
 import AdmissionRecords from './AdmissionRecords';
 import Library from './Library';
@@ -89,6 +91,7 @@ const StudentDashboard = () => {
     { text: 'Notifications', icon: <Badge badgeContent={unread} color="error"><NotificationsIcon /></Badge>, path: '/student/notifications' },
     { text: 'Gallery', icon: <GalleryIcon />, path: '/student/gallery' },
     { text: 'Library', icon: <LibraryIcon />, path: '/student/library' },
+    { text: 'Hostel', icon: <HostelIcon />, path: '/student/hostel' },
     { text: 'Finance', icon: <Wallet />, path: '/student/finance' },
     { text: 'Attendance', icon: <AttendanceIcon />, path: '/student/attendance' },
     { text: 'Results', icon: <ResultsIcon />, path: '/student/results' },
@@ -241,6 +244,7 @@ const StudentDashboard = () => {
         <Toolbar />
         <Routes>
           <Route path="/" element={<StudentHome />} />
+          <Route path="/hostel" element={<Hostel />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/report-card" element={<ReportCard />} />

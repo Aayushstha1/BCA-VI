@@ -36,7 +36,7 @@ class RoomListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        qs = Room.objects.select_related('hostel')
+        qs = Room.objects.select_related('hostel').prefetch_related('allocations__student__user')
         user = self.request.user
         if getattr(user, 'role', None) == 'student':
             return qs.filter(is_active=True, hostel__is_active=True)
@@ -48,7 +48,7 @@ class RoomDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        qs = Room.objects.select_related('hostel')
+        qs = Room.objects.select_related('hostel').prefetch_related('allocations__student__user')
         user = self.request.user
         if getattr(user, 'role', None) == 'student':
             return qs.filter(is_active=True, hostel__is_active=True)
